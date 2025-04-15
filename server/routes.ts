@@ -46,7 +46,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const validationError = fromZodError(error);
         return res.status(400).json({ message: validationError.message });
       }
-      
       console.error("Error creating question:", error);
       res.status(500).json({ message: "Failed to create question" });
     }

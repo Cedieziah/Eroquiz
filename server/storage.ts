@@ -71,42 +71,42 @@ export class MemStorage implements IStorage {
     const defaultQuestions: InsertQuestion[] = [
       {
         question: "Which of these is NOT a programming language?",
-        options: ["Jabbascript", "Python", "Java", "C++"],
-        correctAnswer: 0
+        options: ["Jabbascript", "Python", "Java", "C++"], // Ensure options is string[]
+        correctAnswer: 0,
       },
       {
         question: "What does HTML stand for?",
         options: [
-          "Hyper Text Markup Language", 
-          "High Technology Modern Language", 
-          "Hyperlink and Text Markup Language", 
-          "Home Tool Markup Language"
+          "Hyper Text Markup Language",
+          "High Technology Modern Language",
+          "Hyperlink and Text Markup Language",
+          "Home Tool Markup Language",
         ],
-        correctAnswer: 0
+        correctAnswer: 0,
       },
       {
         question: "Which company created JavaScript?",
         options: ["Microsoft", "Netscape", "Apple", "Google"],
-        correctAnswer: 1
+        correctAnswer: 1,
       },
       {
         question: "Which symbol is used for single-line comments in JavaScript?",
         options: ["//", "/* */", "#", "<!---->"],
-        correctAnswer: 0
+        correctAnswer: 0,
       },
       {
         question: "What is the correct way to write a JavaScript array?",
         options: [
-          "var colors = ['red', 'green', 'blue']", 
-          "var colors = (1:'red', 2:'green', 3:'blue')", 
-          "var colors = 'red', 'green', 'blue'", 
-          "var colors = 1 = ('red'), 2 = ('green'), 3 = ('blue')"
+          "var colors = ['red', 'green', 'blue']",
+          "var colors = (1:'red', 2:'green', 3:'blue')",
+          "var colors = 'red', 'green', 'blue'",
+          "var colors = 1 = ('red'), 2 = ('green'), 3 = ('blue')",
         ],
-        correctAnswer: 0
-      }
+        correctAnswer: 0,
+      },
     ];
-    
-    defaultQuestions.forEach(q => this.createQuestion(q));
+
+    defaultQuestions.forEach((q) => this.createQuestion(q));
   }
 
   // User methods
@@ -138,7 +138,11 @@ export class MemStorage implements IStorage {
   
   async createQuestion(insertQuestion: InsertQuestion): Promise<Question> {
     const id = this.currentQuestionId++;
-    const question: Question = { ...insertQuestion, id };
+    const question: Question = {
+      ...insertQuestion,
+      id,
+      options: [...insertQuestion.options], // Ensure options is a string[]
+    };
     this.questions.set(id, question);
     return question;
   }
@@ -151,7 +155,8 @@ export class MemStorage implements IStorage {
     
     const updatedQuestion: Question = {
       ...existingQuestion,
-      ...questionUpdate
+      ...questionUpdate,
+      options: questionUpdate.options ? [...questionUpdate.options] : existingQuestion.options, // Ensure options is a string[]
     };
     
     this.questions.set(id, updatedQuestion);
@@ -179,7 +184,13 @@ export class MemStorage implements IStorage {
   // Game session methods
   async createGameSession(insertSession: InsertGameSession): Promise<GameSession> {
     const id = this.currentGameSessionId++;
-    const session: GameSession = { ...insertSession, id };
+    const session: GameSession = {
+      ...insertSession,
+      id,
+      score: insertSession.score ?? 0, // Default to 0 if undefined
+      questionsAnswered: insertSession.questionsAnswered ?? 0,
+      correctAnswers: insertSession.correctAnswers ?? 0,
+    };
     this.gameSessions.set(id, session);
     return session;
   }
