@@ -35,8 +35,10 @@ export default function Score({
       
       <div className="text-center mb-8">
         <div className="inline-block bg-pixel-dark p-4 rounded-lg">
-          <span className="font-pixel text-white text-2xl mr-2">FINAL SCORE:</span>
-          <span className="font-pixel text-pixel-yellow text-4xl">{score}</span>
+          <div className="text-center">
+            <span className="font-pixel text-white text-2xl block mb-2">FINAL SCORE:</span>
+            <span className="font-pixel text-pixel-yellow text-4xl block">{score}</span>
+          </div>
         </div>
       </div>
       
