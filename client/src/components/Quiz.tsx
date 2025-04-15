@@ -22,9 +22,21 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
   const timerRef = useRef<number | null>(null);
   const shuffledQuestionsRef = useRef<Question[]>([]);
   
-  // Shuffle questions on mount
+  // Shuffle and prepare questions immediately on mount
   useEffect(() => {
-    shuffledQuestionsRef.current = [...questions].sort(() => Math.random() - 0.5);
+    // Use performance optimization to avoid re-shuffling if we already have questions
+    if (questions.length > 0 && shuffledQuestionsRef.current.length === 0) {
+      // Preload and shuffle questions
+      shuffledQuestionsRef.current = [...questions].sort(() => Math.random() - 0.5);
+    } else if (questions.length > 0) {
+      // Only reshuffle if previous question set is different
+      const questionIds = questions.map(q => q.id).sort().join(',');
+      const currentIds = shuffledQuestionsRef.current.map(q => q.id).sort().join(',');
+      
+      if (questionIds !== currentIds) {
+        shuffledQuestionsRef.current = [...questions].sort(() => Math.random() - 0.5);
+      }
+    }
     
     // Start with a fresh quiz
     setCurrentQuestionIndex(0);

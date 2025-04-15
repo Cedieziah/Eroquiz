@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Login from "@/components/Login";
 import Rules from "@/components/Rules";
 import Quiz from "@/components/Quiz";
 import Score from "@/components/Score";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Question, Settings } from "@shared/schema";
 
 type GameStage = "login" | "rules" | "quiz" | "score";
@@ -14,6 +14,8 @@ export default function Home() {
   const [score, setScore] = useState<number>(0);
   const [correctAnswers, setCorrectAnswers] = useState<number>(0);
   const [questionsAnswered, setQuestionsAnswered] = useState<number>(0);
+  const [isReady, setIsReady] = useState<boolean>(false);
+  const queryClient = useQueryClient();
   
   // Fetch questions from the server
   const { data: questions = [], isLoading: questionsLoading } = useQuery<Question[]>({
@@ -27,12 +29,43 @@ export default function Home() {
     staleTime: Infinity,
   });
   
+  // Prefetch and prepare data as soon as possible
+  useEffect(() => {
+    // Pre-load the data on component mount
+    const prefetchData = async () => {
+      await Promise.all([
+        queryClient.prefetchQuery({
+          queryKey: ["/api/questions"],
+          staleTime: Infinity,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: ["/api/settings"],
+          staleTime: Infinity,
+        })
+      ]);
+      setIsReady(true);
+    };
+    
+    prefetchData();
+  }, [queryClient]);
+  
   const handleStartGame = (name: string) => {
     setPlayerName(name);
     setGameStage("rules");
+    
+    // Prefetch again just to be sure data is ready when moving to rules
+    queryClient.prefetchQuery({
+      queryKey: ["/api/questions"],
+      staleTime: Infinity,
+    });
+    queryClient.prefetchQuery({
+      queryKey: ["/api/settings"],
+      staleTime: Infinity,
+    });
   };
   
   const handleStartQuiz = () => {
+    // Start quiz immediately with cached data
     setGameStage("quiz");
     // Reset game state
     setScore(0);
@@ -78,8 +111,8 @@ export default function Home() {
     setPlayerName("");
   };
   
-  // Loading indicator
-  if (questionsLoading || settingsLoading || !settings) {
+  // Loading indicator - only show when absolutely necessary
+  if (gameStage === "quiz" && (questionsLoading || settingsLoading || !settings)) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="bg-white p-6 rounded-lg pixel-border my-12">
@@ -99,7 +132,7 @@ export default function Home() {
         <Rules onStartQuiz={handleStartQuiz} />
       )}
       
-      {gameStage === "quiz" && (
+      {gameStage === "quiz" && settings && (
         <Quiz 
           questions={questions} 
           settings={settings}

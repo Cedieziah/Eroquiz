@@ -1,10 +1,38 @@
+import { useEffect } from "react";
 import PixelHeart from "./PixelHeart";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface RulesProps {
   onStartQuiz: () => void;
 }
 
 export default function Rules({ onStartQuiz }: RulesProps) {
+  const queryClient = useQueryClient();
+  
+  // Prefetch questions and settings as soon as Rules component mounts
+  useEffect(() => {
+    // Preload questions with high priority to ensure they're ready
+    Promise.all([
+      queryClient.prefetchQuery({
+        queryKey: ["/api/questions"],
+        staleTime: Infinity,
+      }),
+      queryClient.prefetchQuery({
+        queryKey: ["/api/settings"],
+        staleTime: Infinity,
+      })
+    ]);
+    
+    // Warm up the quiz component
+    setTimeout(() => {
+      // Force data to be ready when user clicks "I UNDERSTAND"
+      queryClient.setQueryData(["/api/questions"], 
+        queryClient.getQueryData(["/api/questions"]) || []);
+      queryClient.setQueryData(["/api/settings"],
+        queryClient.getQueryData(["/api/settings"]));
+    }, 1000);
+  }, [queryClient]);
+  
   return (
     <div className="bg-white p-6 rounded-lg pixel-border my-12">
       <h1 className="text-pixel-yellow text-center font-pixel text-4xl mb-10 leading-relaxed tracking-wider shadow-lg">QUIZ RULES</h1>
