@@ -9,11 +9,30 @@ export default function Login({ onStartGame }: LoginProps) {
   const [playerName, setPlayerName] = useState<string>("");
   const [error, setError] = useState<string>("");
   
+  // Handle input change with validation - only allow letters
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    
+    // Only allow alphabetic characters (letters)
+    if (value === "" || /^[a-zA-Z]+$/.test(value)) {
+      setPlayerName(value);
+      if (error) setError("");
+    } else {
+      setError("Only letters are allowed (no spaces, numbers, or symbols)");
+    }
+  };
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!playerName.trim()) {
+    // Validate name format
+    if (!playerName) {
       setError("Please enter your name to continue!");
+      return;
+    }
+    
+    if (!/^[a-zA-Z]+$/.test(playerName)) {
+      setError("Name must contain only letters (no spaces, numbers, or symbols)");
       return;
     }
     
@@ -40,16 +59,19 @@ export default function Login({ onStartGame }: LoginProps) {
             id="player-name" 
             className="w-full px-4 py-3 bg-gray-100 border-4 border-pixel-dark font-pixel-text text-xl"
             value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
+            onChange={handleNameChange}
             maxLength={20}
+            placeholder="Letters only"
           />
           {error && <p className="text-pixel-red font-pixel text-xs mt-2">{error}</p>}
+          <p className="text-gray-500 font-pixel-text text-sm mt-1">Only letters allowed (A-Z, a-z)</p>
         </div>
         
         <div className="text-center">
           <button 
             type="submit" 
             className="bg-pixel-yellow px-8 py-3 font-pixel text-pixel-dark pixel-border hover:bg-yellow-400 pixel-btn transition-all"
+            disabled={!playerName || !/^[a-zA-Z]+$/.test(playerName)}
           >
             START GAME
           </button>
