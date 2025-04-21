@@ -65,38 +65,8 @@
   100% { width: 0%; }
 }
 
-@keyframes fall {
-  0% {
-    transform: translateY(-10px) rotate(0deg);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) rotate(720deg);
-    opacity: 0;
-  }
-}
-
-@keyframes sway {
-  0% {
-    transform: translateX(-50%) rotate(-3deg);
-  }
-  100% {
-    transform: translateX(-50%) rotate(3deg);
-  }
-}
-
 .animate-timer {
   animation: timer linear forwards;
-}
-
-.animate-fall {
-  animation: fall linear forwards;
 }
 
 .bg-pixel-blue {
