@@ -150,16 +150,7 @@ export default function Home() {
         />
       )}
       
-      {/* Admin Panel Toggle */}
-      <div className="fixed bottom-4 right-4 z-10">
-        <a 
-          href="/admin"
-          className="bg-transparent text-white font-pixel px-4 py-2 cursor-pointer hover:text-yellow-300 transition-colors inline-block shadow-none"
-          style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}
-        >
-          ⚙️ ADMIN
-        </a>
-      </div>
+      {/* Admin Panel Toggle - Removed, now using heart instead */}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import PixelHeart from "./PixelHeart";
+import AdminHeart from "./AdminHeart";
 
 interface LoginProps {
   onStartGame: (name: string) => void;
@@ -42,7 +43,7 @@ export default function Login({ onStartGame }: LoginProps) {
   return (
     <div className="bg-white p-6 rounded-lg pixel-border my-12">
       <div className="flex justify-center mb-6">
-        <PixelHeart />
+        <AdminHeart />
         <PixelHeart />
         <PixelHeart />
         <PixelHeart />
