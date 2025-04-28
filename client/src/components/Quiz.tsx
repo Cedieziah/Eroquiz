@@ -12,7 +12,10 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [lives, setLives] = useState(settings.lives);
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(settings.timerSeconds);
+  
+  // Replace per-question timer with quiz timer
+  const [quizTimeLeft, setQuizTimeLeft] = useState(settings.quizDurationSeconds);
+  
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null);
   const [answeredQuestions, setAnsweredQuestions] = useState(0);
@@ -38,14 +41,16 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
     }
   }, [quizEnded, score, answeredQuestions, correctAnswers, onQuizEnd]);
 
-  // Timer functionality
+  // Quiz timer functionality - counts down for the entire quiz
   useEffect(() => {
-    if (isTimerRunning && timeLeft > 0) {
+    if (isTimerRunning && quizTimeLeft > 0) {
       timerRef.current = window.setTimeout(() => {
-        setTimeLeft((prev) => prev - 1);
+        setQuizTimeLeft((prev) => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
-      handleTimeUp();
+    } else if (quizTimeLeft === 0) {
+      // Time's up for the whole quiz
+      setIsTimerRunning(false);
+      setQuizEnded(true);
     }
 
     return () => {
@@ -53,32 +58,24 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
         clearTimeout(timerRef.current);
       }
     };
-  }, [timeLeft, isTimerRunning]);
-
-  const handleTimeUp = () => {
-    setLives((prev) => prev - 1); // Deduct a life if time runs out
-    setAnsweredQuestions((prev) => prev + 1);
-    setTimeout(() => {
-      moveToNextQuestion();
-    }, 1500);
-  };
+  }, [quizTimeLeft, isTimerRunning]);
 
   const handleAnswerClick = (answerIndex: number) => {
     if (selectedAnswer !== null || !isTimerRunning) {
-      return; // Prevent double answering or answering after the timer stops
+      return; // Prevent double answering
     }
 
     setSelectedAnswer(answerIndex);
-    setIsTimerRunning(false);
+    // Don't stop the timer when answering a question
 
     const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];
     const isCorrect = answerIndex === currentQuestion.correctAnswer;
     setIsAnswerCorrect(isCorrect);
 
     if (isCorrect) {
-      // Use the question's points instead of the global setting
-      const basePoints = currentQuestion.points || settings.pointsPerCorrectAnswer;
-      setScore((prev) => prev + basePoints);
+      // Use the question's points directly (no time bonus)
+      const points = currentQuestion.points;
+      setScore((prev) => prev + points);
       setCorrectAnswers((prev) => prev + 1);
     } else {
       setLives((prev) => prev - 1); // Deduct a life for incorrect answers
@@ -86,7 +83,7 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
 
     setAnsweredQuestions((prev) => prev + 1);
 
-    // Move to the next question after a delay
+    // Move to the next question after a delay, but keep the timer running
     setTimeout(() => {
       moveToNextQuestion();
     }, 1500);
@@ -95,16 +92,23 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
   const moveToNextQuestion = () => {
     setSelectedAnswer(null);
     setIsAnswerCorrect(null);
-    setTimeLeft(settings.timerSeconds);
-    setIsTimerRunning(true);
-
+    
+    // Don't reset the timer for each question
+    
     // Check if there are more questions and if we still have lives
     if (currentQuestionIndex + 1 < shuffledQuestionsRef.current.length && lives > 0) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      // End the quiz - this will trigger the useEffect that calls onQuizEnd
+      // End the quiz
       setQuizEnded(true);
     }
+  };
+
+  // Format time to display as MM:SS
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
   };
 
   // If we don't have any questions or the quiz has ended
@@ -119,7 +123,7 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
   }
 
   const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];
-
+  
   return (
     <div>
       {/* Header */}
@@ -136,16 +140,17 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
         </div>
       </div>
 
-      {/* Quiz Title Bar */}
-      <div className="bg-pixel-yellow rounded-t-lg p-4">
-        <h2 className="font-pixel text-center text-2xl">QUIZ START!</h2>
+      {/* Quiz Title Bar with Timer */}
+      <div className="bg-pixel-yellow rounded-t-lg p-4 flex justify-between items-center">
+        <h2 className="font-pixel text-center text-2xl">QUIZ TIME!</h2>
+        <div className="font-pixel text-xl">{formatTime(quizTimeLeft)}</div>
       </div>
 
       {/* Timer Bar */}
       <div className="bg-gray-200 h-6 w-full">
         <div 
           className="bg-pixel-red h-full transition-all duration-1000" 
-          style={{ width: `${(timeLeft / settings.timerSeconds) * 100}%` }}
+          style={{ width: `${(quizTimeLeft / settings.quizDurationSeconds) * 100}%` }}
         ></div>
       </div>
 

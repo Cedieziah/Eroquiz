@@ -58,6 +58,7 @@ export class MemStorage implements IStorage {
     this.gameSettings = {
       id: 1,
       timerSeconds: 30,
+      quizDurationSeconds: 300, // 5 minutes total quiz duration
       lives: 5,
       pointsPerCorrectAnswer: 50,
       timeBonus: 5

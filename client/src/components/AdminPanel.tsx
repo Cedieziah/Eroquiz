@@ -20,12 +20,10 @@ const questionFormSchema = insertQuestionSchema.extend({
 
 type QuestionFormValues = z.infer<typeof questionFormSchema>;
 
-// Extended settings schema with zod validation
+// Updated schema with only relevant fields
 const settingsFormSchema = z.object({
-  timerSeconds: z.number().min(5, "Minimum 5 seconds").max(60, "Maximum 60 seconds"),
+  quizDurationMinutes: z.number().min(1, "Minimum 1 minute").max(30, "Maximum 30 minutes"),
   lives: z.number().min(1, "Minimum 1 life").max(10, "Maximum 10 lives"),
-  pointsPerCorrectAnswer: z.number().min(1, "Minimum 1 point").max(1000, "Maximum 1000 points"),
-  timeBonus: z.number().min(0, "Minimum 0 points").max(100, "Maximum 100 points"),
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
@@ -61,10 +59,8 @@ export default function AdminPanel() {
   const settingsForm = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),
     defaultValues: {
-      timerSeconds: 30,
-      lives: 5,
-      pointsPerCorrectAnswer: 50,
-      timeBonus: 5
+      quizDurationMinutes: settings ? Math.round(settings.quizDurationSeconds / 60) : 5,
+      lives: settings?.lives || 5,
     }
   });
   
@@ -72,10 +68,8 @@ export default function AdminPanel() {
   useEffect(() => {
     if (settings) {
       settingsForm.reset({
-        timerSeconds: settings.timerSeconds,
+        quizDurationMinutes: Math.round(settings.quizDurationSeconds / 60),
         lives: settings.lives,
-        pointsPerCorrectAnswer: settings.pointsPerCorrectAnswer,
-        timeBonus: settings.timeBonus
       });
     }
   }, [settings, settingsForm]);
@@ -173,7 +167,18 @@ export default function AdminPanel() {
   // Update settings mutation
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: SettingsFormValues) => {
-      const res = await apiRequest("PUT", "/api/settings", data);
+      // Transform the data to match the API expectations
+      const apiData = {
+        // Convert minutes to seconds for the server
+        quizDurationSeconds: data.quizDurationMinutes * 60,
+        // Keep existing values for fields we're not showing in UI
+        lives: data.lives,
+        timerSeconds: settings?.timerSeconds || 30,
+        pointsPerCorrectAnswer: settings?.pointsPerCorrectAnswer || 50,
+        timeBonus: settings?.timeBonus || 0
+      };
+      
+      const res = await apiRequest("PUT", "/api/settings", apiData);
       return res.json();
     },
     onSuccess: () => {
@@ -389,22 +394,25 @@ export default function AdminPanel() {
           ) : (
             <form onSubmit={settingsForm.handleSubmit(onSubmitSettings)}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Quiz Duration in Minutes */}
                 <div>
-                  <label className="block font-pixel text-sm mb-2">Question Timer (seconds):</label>
+                  <label className="block font-pixel text-sm mb-2">Quiz Duration (minutes):</label>
                   <input 
                     type="number"
-                    {...settingsForm.register("timerSeconds", { valueAsNumber: true })}
-                    min="5" 
-                    max="60"
+                    {...settingsForm.register("quizDurationMinutes", { valueAsNumber: true })}
+                    min="1" 
+                    max="30"
                     className="w-full px-3 py-2 border-2 border-gray-300 font-pixel-text"
                   />
-                  {settingsForm.formState.errors.timerSeconds && (
+                  {settingsForm.formState.errors.quizDurationMinutes && (
                     <p className="text-red-500 text-xs mt-1">
-                      {settingsForm.formState.errors.timerSeconds.message}
+                      {settingsForm.formState.errors.quizDurationMinutes.message}
                     </p>
                   )}
+                  <p className="text-xs text-gray-600 mt-1">Total time for the entire quiz</p>
                 </div>
-                
+
+                {/* Number of Lives */}
                 <div>
                   <label className="block font-pixel text-sm mb-2">Number of Lives:</label>
                   <input 
@@ -417,38 +425,6 @@ export default function AdminPanel() {
                   {settingsForm.formState.errors.lives && (
                     <p className="text-red-500 text-xs mt-1">
                       {settingsForm.formState.errors.lives.message}
-                    </p>
-                  )}
-                </div>
-                
-                <div>
-                  <label className="block font-pixel text-sm mb-2">Points per Correct Answer:</label>
-                  <input 
-                    type="number"
-                    {...settingsForm.register("pointsPerCorrectAnswer", { valueAsNumber: true })}
-                    min="1" 
-                    max="1000"
-                    className="w-full px-3 py-2 border-2 border-gray-300 font-pixel-text"
-                  />
-                  {settingsForm.formState.errors.pointsPerCorrectAnswer && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {settingsForm.formState.errors.pointsPerCorrectAnswer.message}
-                    </p>
-                  )}
-                </div>
-                
-                <div>
-                  <label className="block font-pixel text-sm mb-2">Time Bonus (points per second left):</label>
-                  <input 
-                    type="number"
-                    {...settingsForm.register("timeBonus", { valueAsNumber: true })}
-                    min="0" 
-                    max="100"
-                    className="w-full px-3 py-2 border-2 border-gray-300 font-pixel-text"
-                  />
-                  {settingsForm.formState.errors.timeBonus && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {settingsForm.formState.errors.timeBonus.message}
                     </p>
                   )}
                 </div>
