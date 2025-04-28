@@ -71,8 +71,9 @@ export class MemStorage implements IStorage {
     const defaultQuestions: InsertQuestion[] = [
       {
         question: "Which of these is NOT a programming language?",
-        options: ["Jabbascript", "Python", "Java", "C++"], // Ensure options is string[]
+        options: ["Jabbascript", "Python", "Java", "C++"],
         correctAnswer: 0,
+        points: 50 // Add points field
       },
       {
         question: "What does HTML stand for?",
@@ -80,19 +81,22 @@ export class MemStorage implements IStorage {
           "Hyper Text Markup Language",
           "High Technology Modern Language",
           "Hyperlink and Text Markup Language",
-          "Home Tool Markup Language",
+          "Home Tool Markup Language"
         ],
         correctAnswer: 0,
+        points: 50
       },
       {
         question: "Which company created JavaScript?",
         options: ["Microsoft", "Netscape", "Apple", "Google"],
         correctAnswer: 1,
+        points: 50
       },
       {
         question: "Which symbol is used for single-line comments in JavaScript?",
         options: ["//", "/* */", "#", "<!---->"],
         correctAnswer: 0,
+        points: 50
       },
       {
         question: "What is the correct way to write a JavaScript array?",
@@ -100,10 +104,11 @@ export class MemStorage implements IStorage {
           "var colors = ['red', 'green', 'blue']",
           "var colors = (1:'red', 2:'green', 3:'blue')",
           "var colors = 'red', 'green', 'blue'",
-          "var colors = 1 = ('red'), 2 = ('green'), 3 = ('blue')",
+          "var colors = 1 = ('red'), 2 = ('green'), 3 = ('blue')"
         ],
         correctAnswer: 0,
-      },
+        points: 50
+      }
     ];
 
     defaultQuestions.forEach((q) => this.createQuestion(q));
@@ -142,6 +147,7 @@ export class MemStorage implements IStorage {
       ...insertQuestion,
       id,
       options: [...insertQuestion.options], // Ensure options is a string[]
+      points: insertQuestion.points ?? 50, // Ensure points is defined with default value
     };
     this.questions.set(id, question);
     return question;
@@ -156,7 +162,8 @@ export class MemStorage implements IStorage {
     const updatedQuestion: Question = {
       ...existingQuestion,
       ...questionUpdate,
-      options: questionUpdate.options ? [...questionUpdate.options] : existingQuestion.options, // Ensure options is a string[]
+      options: questionUpdate.options ? [...questionUpdate.options] : existingQuestion.options,
+      points: questionUpdate.points ?? existingQuestion.points, // Ensure points is defined
     };
     
     this.questions.set(id, updatedQuestion);

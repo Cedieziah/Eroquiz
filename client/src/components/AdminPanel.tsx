@@ -14,7 +14,8 @@ const questionFormSchema = insertQuestionSchema.extend({
   // Ensure options are provided correctly
   options: z.array(z.string()).min(2, "At least 2 options are required").max(4, "Maximum 4 options allowed"),
   // Ensure correct answer is valid
-  correctAnswer: z.number().min(0).max(3)
+  correctAnswer: z.number().min(0).max(3),
+  points: z.number().min(1, "Points must be at least 1").default(50)
 });
 
 type QuestionFormValues = z.infer<typeof questionFormSchema>;
@@ -51,7 +52,8 @@ export default function AdminPanel() {
     defaultValues: {
       question: "",
       options: ["", "", "", ""],
-      correctAnswer: 0
+      correctAnswer: 0,
+      points: 50
     }
   });
   
@@ -84,7 +86,8 @@ export default function AdminPanel() {
       questionForm.reset({
         question: editingQuestion.question,
         options: [...editingQuestion.options],
-        correctAnswer: editingQuestion.correctAnswer
+        correctAnswer: editingQuestion.correctAnswer,
+        points: editingQuestion.points || 50 // Use question points or default
       });
     }
   }, [editingQuestion, questionForm]);
@@ -103,7 +106,8 @@ export default function AdminPanel() {
       questionForm.reset({
         question: "",
         options: ["", "", "", ""],
-        correctAnswer: 0
+        correctAnswer: 0,
+        points: 50 // Set default points
       });
       queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
     },
@@ -131,7 +135,8 @@ export default function AdminPanel() {
       questionForm.reset({
         question: "",
         options: ["", "", "", ""],
-        correctAnswer: 0
+        correctAnswer: 0,
+        points: 50 // Set default points
       });
       queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
     },
@@ -207,7 +212,8 @@ export default function AdminPanel() {
     questionForm.reset({
       question: "",
       options: ["", "", "", ""],
-      correctAnswer: 0
+      correctAnswer: 0,
+      points: 50 // Set default points
     });
   };
   
@@ -333,6 +339,22 @@ export default function AdminPanel() {
                 )}
                 
                 <p className="text-xs font-pixel mt-2 text-gray-600">* Select the radio button next to the correct answer</p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block font-pixel text-sm mb-2">Points:</label>
+                <input 
+                  type="number"
+                  {...questionForm.register("points", { valueAsNumber: true })}
+                  min="1"
+                  className="w-full px-3 py-2 border-2 border-gray-300 font-pixel-text" 
+                  placeholder="Points for correct answer (default: 50)"
+                />
+                {questionForm.formState.errors.points && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {questionForm.formState.errors.points.message}
+                  </p>
+                )}
               </div>
               
               <div className="flex justify-between">

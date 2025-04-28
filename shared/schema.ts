@@ -23,14 +23,17 @@ export const questions = pgTable("questions", {
   question: text("question").notNull(),
   options: json("options").$type<string[]>().notNull(),
   correctAnswer: integer("correct_answer").notNull(),
+  points: integer("points").notNull().default(50), // Default to 50 points
 });
 
 export const insertQuestionSchema = createInsertSchema(questions).pick({
   question: true,
   options: true,
   correctAnswer: true,
+  points: true,
 });
 
+// Remove duplicate type definitions - use only the z.infer types
 export type InsertQuestion = z.infer<typeof insertQuestionSchema>;
 export type Question = typeof questions.$inferSelect;
 
