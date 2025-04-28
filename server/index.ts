@@ -54,7 +54,7 @@ app.use((req, res, next) => {
   }
 
   // Server port setup
-  const PORT = parseInt(process.env.PORT || "5000", 10);
+  const PORT = parseInt(process.env.PORT || "5001", 10);
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });

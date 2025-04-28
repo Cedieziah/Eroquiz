@@ -1,6 +1,8 @@
+/* eslint-disable */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* eslint-enable */
 
 @layer base {
   * {
@@ -97,6 +99,121 @@
   color: #333333;
 }
 
+.text-pixel-blue {
+  color: #00CCFF;
+}
+
+.text-pixel-red {
+  color: #FF3333;
+}
+
 .heart {
   image-rendering: pixelated;
+}
+
+/* Stylized Score Screen Styles */
+.pixel-container {
+  padding: 1rem;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.pixel-border-thick {
+  border: 8px solid #000000;
+  box-shadow: 
+    0 0 0 4px white,
+    0 0 0 8px #000000,
+    0 5px 10px rgba(0, 0, 0, 0.5);
+}
+
+.pixel-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background-color: #000;
+}
+
+.top-left {
+  top: -2px;
+  left: -2px;
+}
+
+.top-right {
+  top: -2px;
+  right: -2px;
+}
+
+.bottom-left {
+  bottom: -2px;
+  left: -2px;
+}
+
+.bottom-right {
+  bottom: -2px;
+  right: -2px;
+}
+
+.score-container {
+  background-color: rgba(0, 0, 0, 0.05);
+  border: 4px solid #000;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 2px dotted rgba(0, 0, 0, 0.1);
+}
+
+.score-row:last-child {
+  border-bottom: none;
+}
+
+.btn-pixel {
+  position: relative;
+  border: 4px solid #000000;
+  border-radius: 4px;
+  box-shadow: 
+    0 6px 0 #000000,
+    0 8px 10px rgba(0, 0, 0, 0.2);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  transition: all 0.1s;
+}
+
+.btn-pixel:active {
+  transform: translateY(4px);
+  box-shadow: 
+    0 2px 0 #000000,
+    0 4px 5px rgba(0, 0, 0, 0.2);
+}
+
+.game-over-text {
+  text-shadow: 
+    4px 4px 0 #000,
+    -2px -2px 0 #000,
+    2px -2px 0 #000,
+    -2px 2px 0 #000;
+  letter-spacing: 4px;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

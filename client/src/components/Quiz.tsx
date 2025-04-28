@@ -22,14 +22,20 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [quizEnded, setQuizEnded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const timerRef = useRef<number | null>(null);
   const shuffledQuestionsRef = useRef<Question[]>([]);
 
   // Shuffle and prepare questions immediately on mount
   useEffect(() => {
-    shuffledQuestionsRef.current = [...questions].sort(() => Math.random() - 0.5);
-    console.log(`Loaded ${shuffledQuestionsRef.current.length} questions`);
+    if (questions && questions.length > 0) {
+      shuffledQuestionsRef.current = [...questions].sort(() => Math.random() - 0.5);
+      console.log(`Loaded ${shuffledQuestionsRef.current.length} questions`);
+      setIsLoading(false);
+    } else {
+      console.log("No questions available yet", questions);
+    }
   }, [questions]);
 
   // Handle quiz end
@@ -111,15 +117,25 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
     return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
   };
 
-  // If we don't have any questions or the quiz has ended
-  if (!shuffledQuestionsRef.current.length || quizEnded) {
-    return <div>Loading...</div>;
+  // If still loading
+  if (isLoading) {
+    return <div className="p-8 text-center font-pixel">Loading questions...</div>;
+  }
+
+  // If we don't have any questions after loading
+  if (!shuffledQuestionsRef.current.length) {
+    return <div className="p-8 text-center font-pixel">No questions available. Please add some questions in the admin panel.</div>;
+  }
+
+  // If the quiz has ended
+  if (quizEnded) {
+    return <div className="p-8 text-center font-pixel">Finishing quiz...</div>;
   }
 
   // If we're out of questions or lives, end the quiz
   if (currentQuestionIndex >= shuffledQuestionsRef.current.length || lives <= 0) {
     setQuizEnded(true);
-    return <div>Finishing quiz...</div>;
+    return <div className="p-8 text-center font-pixel">Finishing quiz...</div>;
   }
 
   const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];

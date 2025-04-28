@@ -5,6 +5,7 @@ import Quiz from "@/components/Quiz";
 import Score from "@/components/Score";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Question, Settings } from "@shared/schema";
+import { saveScore } from '../services/supabase';
 
 type GameStage = "login" | "rules" | "quiz" | "score";
 
@@ -73,14 +74,15 @@ export default function Home() {
     setQuestionsAnswered(0);
   };
   
-  const handleQuizEnd = (finalScore: number, answered: number, correct: number) => {
+  const handleQuizEnd = (finalScore: number, answered: number, correct: number, timeSpent?: number) => {
     setScore(finalScore);
     setQuestionsAnswered(answered);
     setCorrectAnswers(correct);
     setGameStage("score");
     
-    // Save game session
+    // Save score to both local storage and Supabase
     if (playerName) {
+      // First save to local storage
       fetch("/api/game-sessions", {
         method: "POST",
         headers: {
@@ -93,7 +95,18 @@ export default function Home() {
           correctAnswers: correct,
         }),
       }).catch(error => {
-        console.error("Failed to save game session:", error);
+        console.error("Failed to save game session locally:", error);
+      });
+      
+      // Then save to Supabase
+      saveScore({
+        playerName,
+        score: finalScore,
+        questionsAnswered: answered,
+        correctAnswers: correct,
+        timeSpentSeconds: timeSpent
+      }).catch(error => {
+        console.error("Failed to save score to Supabase:", error);
       });
     }
   };
@@ -142,6 +155,7 @@ export default function Home() {
       
       {gameStage === "score" && (
         <Score 
+          playerName={playerName}
           score={score}
           questionsAnswered={questionsAnswered}
           correctAnswers={correctAnswers}
