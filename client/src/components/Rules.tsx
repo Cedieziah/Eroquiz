@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import PixelHeart from "./PixelHeart";
 import { useQueryClient } from "@tanstack/react-query";
+import { Settings } from "@shared/schema";
 
 interface RulesProps {
   onStartQuiz: () => void;
@@ -8,6 +9,7 @@ interface RulesProps {
 
 export default function Rules({ onStartQuiz }: RulesProps) {
   const queryClient = useQueryClient();
+  const [settings, setSettings] = useState<Settings | null>(null);
   
   // Prefetch questions and settings as soon as Rules component mounts
   useEffect(() => {
@@ -21,7 +23,11 @@ export default function Rules({ onStartQuiz }: RulesProps) {
         queryKey: ["/api/settings"],
         staleTime: Infinity,
       })
-    ]);
+    ]).then(() => {
+      // Get settings to determine if lives are enabled
+      const settingsData = queryClient.getQueryData<Settings>(["/api/settings"]);
+      setSettings(settingsData || null);
+    });
     
     // Warm up the quiz component
     setTimeout(() => {
@@ -40,10 +46,20 @@ export default function Rules({ onStartQuiz }: RulesProps) {
       <div className="mb-8 font-pixel-text text-xl leading-relaxed">
         <p className="mb-4">🎮 Welcome to EroQuiz! Here are the rules:</p>
         <ul className="list-disc pl-8 space-y-3">
-          <li>You have <span className="font-bold text-pixel-red">5 lives</span> to complete the quiz</li>
+          {/* Only show lives-related rules if lives are enabled */}
+          {settings?.livesEnabled && (
+            <>
+              <li>You have <span className="font-bold text-pixel-red">{settings?.lives || 5} lives</span> to complete the quiz</li>
+              <li>Incorrect answers will cost you a life</li>
+            </>
+          )}
           <li>Each question has a <span className="font-bold text-pixel-red">time limit</span></li>
-          <li>Incorrect answers will cost you a life</li>
-          <li>Answer as many questions as you can before losing all lives</li>
+          <li>The total quiz duration is <span className="font-bold text-pixel-red">{settings ? Math.round(settings.quizDurationSeconds / 60) : 5} minutes</span></li>
+          {settings?.livesEnabled ? (
+            <li>Answer as many questions as you can before losing all lives</li>
+          ) : (
+            <li>Answer as many questions as you can within the time limit</li>
+          )}
           <li>Your final score will be displayed at the end</li>
         </ul>
       </div>

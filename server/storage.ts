@@ -61,7 +61,8 @@ export class MemStorage implements IStorage {
       quizDurationSeconds: 300, // 5 minutes total quiz duration
       lives: 5,
       pointsPerCorrectAnswer: 50,
-      timeBonus: 5
+      timeBonus: 5,
+      livesEnabled: true  // Add the livesEnabled field with default true
     };
     
     // Add some default questions
