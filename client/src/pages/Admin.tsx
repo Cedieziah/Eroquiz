@@ -25,21 +25,21 @@ export default function Admin() {
   };
   
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
       {isAuthenticated ? (
-        <div className="bg-white p-6 rounded-lg pixel-border my-12">
+        <div>
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-pixel-yellow text-center font-pixel text-2xl mb-0">ADMIN PANEL</h1>
+            <h1 className="text-pixel-yellow font-pixel text-3xl">ADMIN PANEL</h1>
             <div className="flex space-x-3">
               <button
                 onClick={handleLogout}
-                className="bg-pixel-red text-white font-pixel px-4 py-2 rounded-lg hover:bg-red-500 transition-colors"
+                className="bg-pixel-red text-white font-pixel px-4 py-2 border-2 border-black hover:bg-red-500 transition-colors"
               >
                 LOGOUT
               </button>
               <Link 
                 to="/"
-                className="bg-pixel-blue text-white font-pixel px-4 py-2 rounded-lg hover:bg-blue-400 transition-colors"
+                className="bg-pixel-blue text-white font-pixel px-4 py-2 border-2 border-black hover:bg-blue-400 transition-colors"
               >
                 BACK TO GAME
               </Link>

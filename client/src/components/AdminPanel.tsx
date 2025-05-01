@@ -11,8 +11,12 @@ type AdminTab = "questions" | "settings";
 
 // Extended question schema with zod validation
 const questionFormSchema = insertQuestionSchema.extend({
-  // Ensure options are provided correctly
-  options: z.array(z.string()).min(2, "At least 2 options are required").max(4, "Maximum 4 options allowed"),
+  // Update schema to require non-empty question text
+  question: z.string().min(1, "Question text is required"),
+  // Ensure options are provided correctly with non-empty strings
+  options: z.array(
+    z.string().min(1, "Answer option cannot be empty")
+  ).min(2, "At least 2 options are required").max(4, "Maximum 4 options allowed"),
   // Ensure correct answer is valid
   correctAnswer: z.number().min(0).max(3),
   points: z.number().min(1, "Points must be at least 1").default(50)
@@ -238,19 +242,7 @@ export default function AdminPanel() {
   };
   
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="font-pixel text-3xl text-pixel-yellow tracking-wider">ADMIN PANEL</h1>
-        <div className="flex space-x-2">
-          <button className="bg-pixel-blue text-white font-pixel px-4 py-2 border-2 border-black hover:bg-blue-600 shadow-md">
-            BACK TO GAME
-          </button>
-          <button className="bg-pixel-red text-white font-pixel px-4 py-2 border-2 border-black hover:bg-red-600 shadow-md">
-            LOGOUT
-          </button>
-        </div>
-      </div>
-      
+    <div className="container mx-auto max-w-6xl">
       {/* Main Container with Pixel Art Border */}
       <div className="relative mb-6">
         <div className="absolute inset-0 border-8 border-black"></div>
