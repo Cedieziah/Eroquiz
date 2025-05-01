@@ -83,8 +83,9 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
       const points = currentQuestion.points;
       setScore((prev) => prev + points);
       setCorrectAnswers((prev) => prev + 1);
-    } else {
-      setLives((prev) => prev - 1); // Deduct a life for incorrect answers
+    } else if (settings.livesEnabled) {
+      // Only deduct lives if the feature is enabled
+      setLives((prev) => prev - 1);
     }
 
     setAnsweredQuestions((prev) => prev + 1);
@@ -101,8 +102,9 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
     
     // Don't reset the timer for each question
     
-    // Check if there are more questions and if we still have lives
-    if (currentQuestionIndex + 1 < shuffledQuestionsRef.current.length && lives > 0) {
+    // Check if there are more questions and if we still have lives (or if lives feature is disabled)
+    if (currentQuestionIndex + 1 < shuffledQuestionsRef.current.length && 
+        (!settings.livesEnabled || lives > 0)) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
       // End the quiz
@@ -132,8 +134,9 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
     return <div className="p-8 text-center font-pixel">Finishing quiz...</div>;
   }
 
-  // If we're out of questions or lives, end the quiz
-  if (currentQuestionIndex >= shuffledQuestionsRef.current.length || lives <= 0) {
+  // If we're out of questions or lives (if lives feature is enabled), end the quiz
+  if (currentQuestionIndex >= shuffledQuestionsRef.current.length || 
+      (settings.livesEnabled && lives <= 0)) {
     setQuizEnded(true);
     return <div className="p-8 text-center font-pixel">Finishing quiz...</div>;
   }
@@ -144,13 +147,15 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
     <div className="relative">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center space-x-1 bg-white p-2 rounded-lg border-4 border-black">
-          {/* Hearts/Lives Display */}
-          {Array.from({ length: lives }).map((_, index) => (
-            <PixelHeart key={index} />
-          ))}
-        </div>
-        <div className="font-pixel text-sm bg-black text-white p-3 rounded-lg border-2 border-gray-800">
+        {/* Hearts/Lives Display - Only show if lives feature is enabled */}
+        {settings.livesEnabled && (
+          <div className="flex items-center space-x-1 bg-white p-2 rounded-lg border-4 border-black">
+            {Array.from({ length: lives }).map((_, index) => (
+              <PixelHeart key={index} />
+            ))}
+          </div>
+        )}
+        <div className={`font-pixel text-sm bg-black text-white p-3 rounded-lg border-2 border-gray-800 ${!settings.livesEnabled ? 'ml-auto' : ''}`}>
           <span className="mr-2">SCORE:</span>
           <span className="text-pixel-yellow">{score}</span>
         </div>
@@ -222,7 +227,9 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
               <div className="mt-6 p-4 text-center font-pixel border-4 border-black bg-green-100 text-black">
                 {isAnswerCorrect 
                   ? 'Correct! Good job!' 
-                  : 'Incorrect! You lost a life!'}
+                  : settings.livesEnabled 
+                    ? 'Incorrect! You lost a life!' 
+                    : 'Incorrect! Try the next question.'}
                 <div className="mt-2 text-center text-green-600">
                   <span>▼</span>
                 </div>

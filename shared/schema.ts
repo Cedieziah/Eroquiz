@@ -45,6 +45,7 @@ export const settings = pgTable("settings", {
   lives: integer("lives").notNull().default(5),
   pointsPerCorrectAnswer: integer("points_per_correct_answer").notNull().default(50),
   timeBonus: integer("time_bonus").notNull().default(5),
+  livesEnabled: boolean("lives_enabled").notNull().default(true), // New field to toggle lives feature
 });
 
 export const insertSettingsSchema = createInsertSchema(settings).pick({
@@ -53,6 +54,7 @@ export const insertSettingsSchema = createInsertSchema(settings).pick({
   lives: true,
   pointsPerCorrectAnswer: true,
   timeBonus: true,
+  livesEnabled: true, // Add to schema
 });
 
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;

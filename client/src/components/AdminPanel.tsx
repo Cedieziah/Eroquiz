@@ -28,6 +28,7 @@ type QuestionFormValues = z.infer<typeof questionFormSchema>;
 const settingsFormSchema = z.object({
   quizDurationMinutes: z.number().min(1, "Minimum 1 minute").max(30, "Maximum 30 minutes"),
   lives: z.number().min(1, "Minimum 1 life").max(10, "Maximum 10 lives"),
+  livesEnabled: z.boolean().default(true), // Add livesEnabled to the schema
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
@@ -75,6 +76,7 @@ export default function AdminPanel() {
       settingsForm.reset({
         quizDurationMinutes: Math.round(settings.quizDurationSeconds / 60),
         lives: settings.lives,
+        livesEnabled: settings.livesEnabled ?? true, // Include livesEnabled with fallback to true
       });
     }
   }, [settings, settingsForm]);
@@ -183,8 +185,10 @@ export default function AdminPanel() {
       const apiData = {
         // Convert minutes to seconds for the server
         quizDurationSeconds: data.quizDurationMinutes * 60,
-        // Keep existing values for fields we're not showing in UI
+        // Include lives settings
         lives: data.lives,
+        livesEnabled: data.livesEnabled,
+        // Keep existing values for fields we're not showing in UI
         timerSeconds: settings?.timerSeconds || 30,
         pointsPerCorrectAnswer: settings?.pointsPerCorrectAnswer || 50,
         timeBonus: settings?.timeBonus || 0
@@ -501,42 +505,73 @@ export default function AdminPanel() {
                         <p className="text-xs text-gray-600 mt-2 font-pixel">Total time for the entire quiz</p>
                       </div>
 
-                      {/* Number of Lives */}
+                      {/* Lives Settings Section */}
                       <div className="border-4 border-black p-4 bg-white">
-                        <label className="block font-pixel text-sm mb-2">Number of Lives:</label>
-                        <div className="flex items-center">
-                          <button 
-                            type="button"
-                            className="w-10 h-10 bg-gray-200 border-2 border-black font-pixel text-lg"
-                            onClick={() => {
-                              const current = settingsForm.getValues('lives');
-                              if (current > 1) {
-                                settingsForm.setValue('lives', current - 1);
-                              }
-                            }}
-                          >-</button>
-                          <input 
-                            type="number"
-                            {...settingsForm.register("lives", { valueAsNumber: true })}
-                            min="1" 
-                            max="10"
-                            className="w-20 px-3 py-2 border-y-2 border-black font-pixel-text text-center mx-1"
-                          />
-                          <button 
-                            type="button"
-                            className="w-10 h-10 bg-gray-200 border-2 border-black font-pixel text-lg"
-                            onClick={() => {
-                              const current = settingsForm.getValues('lives');
-                              if (current < 10) {
-                                settingsForm.setValue('lives', current + 1);
-                              }
-                            }}
-                          >+</button>
-                        </div>
-                        {settingsForm.formState.errors.lives && (
-                          <p className="text-pixel-red text-xs mt-1 font-pixel">
-                            {settingsForm.formState.errors.lives.message}
+                        {/* Lives Enable Toggle */}
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between">
+                            <label className="font-pixel text-sm">Enable Lives Feature:</label>
+                            <div 
+                              className={`relative inline-block w-14 h-8 cursor-pointer border-2 border-black ${
+                                settingsForm.watch("livesEnabled") ? "bg-green-500" : "bg-gray-400"
+                              }`}
+                              onClick={() => {
+                                settingsForm.setValue("livesEnabled", !settingsForm.watch("livesEnabled"));
+                              }}
+                            >
+                              <div 
+                                className={`absolute top-0.5 left-0.5 bg-white w-6 h-6 border-2 border-black transition-transform ${
+                                  settingsForm.watch("livesEnabled") ? "transform translate-x-6" : ""
+                                }`} 
+                              />
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-2 font-pixel">
+                            {settingsForm.watch("livesEnabled") 
+                              ? "Players lose a life when answering incorrectly" 
+                              : "Players can make unlimited mistakes"}
                           </p>
+                        </div>
+
+                        {/* Number of Lives (only visible if lives are enabled) */}
+                        {settingsForm.watch("livesEnabled") && (
+                          <div className="mt-4">
+                            <label className="block font-pixel text-sm mb-2">Number of Lives:</label>
+                            <div className="flex items-center">
+                              <button 
+                                type="button"
+                                className="w-10 h-10 bg-gray-200 border-2 border-black font-pixel text-lg"
+                                onClick={() => {
+                                  const current = settingsForm.getValues('lives');
+                                  if (current > 1) {
+                                    settingsForm.setValue('lives', current - 1);
+                                  }
+                                }}
+                              >-</button>
+                              <input 
+                                type="number"
+                                {...settingsForm.register("lives", { valueAsNumber: true })}
+                                min="1" 
+                                max="10"
+                                className="w-20 px-3 py-2 border-y-2 border-black font-pixel-text text-center mx-1"
+                              />
+                              <button 
+                                type="button"
+                                className="w-10 h-10 bg-gray-200 border-2 border-black font-pixel text-lg"
+                                onClick={() => {
+                                  const current = settingsForm.getValues('lives');
+                                  if (current < 10) {
+                                    settingsForm.setValue('lives', current + 1);
+                                  }
+                                }}
+                              >+</button>
+                            </div>
+                            {settingsForm.formState.errors.lives && (
+                              <p className="text-pixel-red text-xs mt-1 font-pixel">
+                                {settingsForm.formState.errors.lives.message}
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
