@@ -141,68 +141,95 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
   const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];
   
   return (
-    <div>
+    <div className="relative">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1 bg-white p-2 rounded-lg border-4 border-black">
           {/* Hearts/Lives Display */}
           {Array.from({ length: lives }).map((_, index) => (
             <PixelHeart key={index} />
           ))}
         </div>
-        <div className="font-pixel text-sm">
+        <div className="font-pixel text-sm bg-black text-white p-3 rounded-lg border-2 border-gray-800">
           <span className="mr-2">SCORE:</span>
           <span className="text-pixel-yellow">{score}</span>
         </div>
       </div>
 
-      {/* Quiz Title Bar with Timer */}
-      <div className="bg-pixel-yellow rounded-t-lg p-4 flex justify-between items-center">
-        <h2 className="font-pixel text-center text-2xl">QUIZ TIME!</h2>
-        <div className="font-pixel text-xl">{formatTime(quizTimeLeft)}</div>
-      </div>
-
-      {/* Timer Bar */}
-      <div className="bg-gray-200 h-6 w-full">
-        <div 
-          className="bg-pixel-red h-full transition-all duration-1000" 
-          style={{ width: `${(quizTimeLeft / settings.quizDurationSeconds) * 100}%` }}
-        ></div>
-      </div>
-
-      {/* Question Card */}
-      <div className="bg-white p-6 rounded-b-lg pixel-border mb-8">
-        <h3 className="font-pixel text-lg mb-6">{currentQuestion.question}</h3>
+      {/* Main Quiz Container with black border and yellow corners */}
+      <div className="relative">
+        {/* Border */}
+        <div className="absolute inset-0 border-8 border-black rounded-lg"></div>
         
-        <div className="space-y-4">
-          {currentQuestion.options.map((option, index) => (
-            <button 
-              key={index}
-              onClick={() => handleAnswerClick(index)}
-              className={`w-full text-left px-4 py-3 font-pixel-text text-xl transition-all ${
-                selectedAnswer === index 
-                  ? isAnswerCorrect 
-                    ? 'bg-green-200 border-4 border-green-500' 
-                    : 'bg-red-200 border-4 border-red-500'
-                  : 'bg-gray-100 border-4 border-pixel-dark hover:bg-pixel-yellow hover:border-pixel-yellow'
-              }`}
-              disabled={selectedAnswer !== null || !isTimerRunning}
-            >
-              {String.fromCharCode(65 + index)}. {option}
-            </button>
-          ))}
-        </div>
-        
-        {/* Feedback message */}
-        {isAnswerCorrect !== null && (
-          <div className={`mt-4 p-2 text-center font-pixel text-sm ${
-            isAnswerCorrect ? 'text-green-600' : 'text-red-600'
-          }`}>
-            {isAnswerCorrect 
-              ? 'Correct! Good job!' 
-              : 'Incorrect! You lost a life!'}
+        {/* Yellow corner accents */}
+        <div className="absolute w-8 h-8 bg-pixel-yellow top-0 left-0 rounded-tl-lg z-10"></div>
+        <div className="absolute w-8 h-8 bg-pixel-yellow top-0 right-0 rounded-tr-lg z-10"></div>
+        <div className="absolute w-8 h-8 bg-pixel-yellow bottom-0 left-0 rounded-bl-lg z-10"></div>
+        <div className="absolute w-8 h-8 bg-pixel-yellow bottom-0 right-0 rounded-br-lg z-10"></div>
+
+        <div className="relative z-20">
+          {/* Quiz Title Bar with Timer */}
+          <div className="bg-pixel-yellow p-4 flex justify-between items-center">
+            <h2 className="font-pixel text-2xl text-black">QUIZ TIME!</h2>
+            <div className="font-pixel text-xl text-black">{formatTime(quizTimeLeft)}</div>
           </div>
-        )}
+
+          {/* Timer Bar */}
+          <div className="bg-pixel-red h-6 w-full relative">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex gap-1">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="w-1 h-1 bg-pixel-yellow rounded-full"></div>
+                ))}
+              </div>
+            </div>
+            <div 
+              className="bg-pixel-red h-full transition-all duration-1000" 
+              style={{ width: `${(quizTimeLeft / settings.quizDurationSeconds) * 100}%` }}
+            ></div>
+          </div>
+
+          {/* Question Card */}
+          <div className="bg-white p-6">
+            <div className="border-l-4 border-pixel-yellow pl-4 mb-8">
+              <h3 className="font-pixel text-lg">{currentQuestion.question}</h3>
+            </div>
+            
+            <div className="space-y-4">
+              {currentQuestion.options.map((option, index) => (
+                <button 
+                  key={index}
+                  onClick={() => handleAnswerClick(index)}
+                  className={`w-full text-left px-4 py-4 font-pixel-text text-lg border-4 border-black flex items-center ${
+                    selectedAnswer === index 
+                      ? isAnswerCorrect 
+                        ? 'bg-green-100' 
+                        : 'bg-white'
+                      : 'bg-white hover:bg-gray-100'
+                  }`}
+                  disabled={selectedAnswer !== null || !isTimerRunning}
+                >
+                  <span className="inline-block w-8 h-8 bg-black text-white font-pixel flex items-center justify-center mr-3">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  <span>{option}</span>
+                </button>
+              ))}
+            </div>
+            
+            {/* Feedback message */}
+            {isAnswerCorrect !== null && (
+              <div className="mt-6 p-4 text-center font-pixel border-4 border-black bg-green-100 text-black">
+                {isAnswerCorrect 
+                  ? 'Correct! Good job!' 
+                  : 'Incorrect! You lost a life!'}
+                <div className="mt-2 text-center text-green-600">
+                  <span>▼</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
