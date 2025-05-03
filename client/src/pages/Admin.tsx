@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import AdminPanel from "@/components/AdminPanel";
 import AdminAuth from "@/components/AdminAuth";
 import { Link } from "wouter";
@@ -6,22 +6,15 @@ import { Link } from "wouter";
 export default function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   
-  // Check if we're already authenticated
-  useEffect(() => {
-    const adminAuth = localStorage.getItem("admin_auth");
-    if (adminAuth === "true") {
-      setIsAuthenticated(true);
-    }
-  }, []);
+  // Admin authentication is now session-only and doesn't persist in localStorage
   
   const handleAuthenticate = () => {
     setIsAuthenticated(true);
-    localStorage.setItem("admin_auth", "true");
+    // No longer storing auth state in localStorage
   };
   
   const handleLogout = () => {
     setIsAuthenticated(false);
-    localStorage.removeItem("admin_auth");
   };
   
   return (

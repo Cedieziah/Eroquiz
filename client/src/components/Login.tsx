@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import PixelHeart from "./PixelHeart";
 import AdminHeart from "./AdminHeart";
+import { useLocation } from "wouter";
 
 interface LoginProps {
   onStartGame: (name: string) => void;
@@ -11,6 +12,11 @@ export default function Login({ onStartGame }: LoginProps) {
   const [error, setError] = useState<string>("");
   const [animateCorner, setAnimateCorner] = useState(0);
   const [pulse, setPulse] = useState(false);
+  
+  // Secret admin access pattern tracking
+  const [leftHeartClicks, setLeftHeartClicks] = useState(0);
+  const [rightHeartClicks, setRightHeartClicks] = useState(0);
+  const [, navigate] = useLocation();
   
   // Animation effects
   useEffect(() => {
@@ -29,6 +35,48 @@ export default function Login({ onStartGame }: LoginProps) {
       clearInterval(pulseInterval);
     };
   }, []);
+  
+  // Secret pattern detection
+  useEffect(() => {
+    // Check if the pattern is correct: 5 clicks on left heart, 3 clicks on right heart
+    if (leftHeartClicks === 5 && rightHeartClicks === 3) {
+      navigate("/admin");
+      // Reset the clicks
+      setLeftHeartClicks(0);
+      setRightHeartClicks(0);
+    }
+  }, [leftHeartClicks, rightHeartClicks, navigate]);
+  
+  // Handle heart clicks
+  const handleLeftHeartClick = () => {
+    setLeftHeartClicks(prev => prev + 1);
+    
+    // Reset right heart clicks when left heart is clicked
+    if (rightHeartClicks > 0) {
+      setRightHeartClicks(0);
+    }
+    
+    // Reset left heart clicks if they exceed the pattern
+    if (leftHeartClicks >= 5) {
+      setLeftHeartClicks(0);
+    }
+  };
+  
+  const handleRightHeartClick = () => {
+    // Only allow right heart clicks if left heart has been clicked 5 times
+    if (leftHeartClicks === 5) {
+      setRightHeartClicks(prev => prev + 1);
+    } else {
+      // Reset both if clicked out of sequence
+      setLeftHeartClicks(0);
+      setRightHeartClicks(0);
+    }
+    
+    // Reset right heart clicks if they exceed the pattern
+    if (rightHeartClicks >= 3) {
+      setRightHeartClicks(0);
+    }
+  };
   
   // Handle input change with validation - only allow letters
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,9 +122,25 @@ export default function Login({ onStartGame }: LoginProps) {
         
         <div className="relative z-20">
           <div className="flex justify-center mb-7">
-            <div className="scale-125 mx-1">
-              <AdminHeart />
+            {/* Left heart - secret admin access (5 clicks) */}
+            <div className="scale-125 mx-1 cursor-pointer" onClick={handleLeftHeartClick}>
+              <svg 
+                className="heart w-8 h-8 inline-block mx-1" 
+                viewBox="0 0 20 20" 
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path 
+                  fill="#FF3333" 
+                  d="M10,4 L8,2 L6,2 L4,2 L2,4 L2,6 L2,8 L4,10 L6,12 L8,14 L10,16 L12,14 L14,12 L16,10 L18,8 L18,6 L18,4 L16,2 L14,2 L12,2 Z" 
+                />
+                <path 
+                  fill="#CC0000" 
+                  d="M10,6 L8,4 L6,4 L4,4 L4,6 L4,8 L6,10 L8,12 L10,14 L12,12 L14,10 L16,8 L16,6 L16,4 L14,4 L12,4 Z" 
+                />
+              </svg>
             </div>
+            
+            {/* Middle hearts - decorative */}
             <div className="scale-125 mx-1">
               <PixelHeart />
             </div>
@@ -86,8 +150,23 @@ export default function Login({ onStartGame }: LoginProps) {
             <div className="scale-125 mx-1">
               <PixelHeart />
             </div>
-            <div className="scale-125 mx-1">
-              <PixelHeart />
+            
+            {/* Right heart - secret admin access (3 clicks after left heart) */}
+            <div className="scale-125 mx-1 cursor-pointer" onClick={handleRightHeartClick}>
+              <svg 
+                className="heart w-8 h-8 inline-block mx-1" 
+                viewBox="0 0 20 20" 
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path 
+                  fill="#FF3333" 
+                  d="M10,4 L8,2 L6,2 L4,2 L2,4 L2,6 L2,8 L4,10 L6,12 L8,14 L10,16 L12,14 L14,12 L16,10 L18,8 L18,6 L18,4 L16,2 L14,2 L12,2 Z" 
+                />
+                <path 
+                  fill="#CC0000" 
+                  d="M10,6 L8,4 L6,4 L4,4 L4,6 L4,8 L6,10 L8,12 L10,14 L12,12 L14,10 L16,8 L16,6 L16,4 L14,4 L12,4 Z" 
+                />
+              </svg>
             </div>
           </div>
           
