@@ -217,3 +217,25 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+@keyframes shake-correct {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px) translateY(-5px); }
+  50% { transform: translateX(5px) translateY(5px); }
+  75% { transform: translateX(-5px) translateY(5px); }
+}
+
+@keyframes shake-incorrect {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  50% { transform: translateX(8px); }
+  75% { transform: translateX(-8px); }
+}
+
+.shake-correct {
+  animation: shake-correct 0.5s ease-in-out;
+}
+
+.shake-incorrect {
+  animation: shake-incorrect 0.5s ease-in-out;
+}

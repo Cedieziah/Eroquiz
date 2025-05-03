@@ -23,6 +23,8 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [quizEnded, setQuizEnded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [scoreAnimation, setScoreAnimation] = useState(false); // For score animation
+  const [feedbackAnimation, setFeedbackAnimation] = useState(false); // For feedback message animation
 
   const timerRef = useRef<number | null>(null);
   const shuffledQuestionsRef = useRef<Question[]>([]);
@@ -77,12 +79,19 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
     const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];
     const isCorrect = answerIndex === currentQuestion.correctAnswer;
     setIsAnswerCorrect(isCorrect);
-
+    
+    // Trigger feedback animation
+    setFeedbackAnimation(true);
+    
     if (isCorrect) {
       // Use the question's points directly (no time bonus)
       const points = currentQuestion.points;
       setScore((prev) => prev + points);
       setCorrectAnswers((prev) => prev + 1);
+      
+      // Animate the score
+      setScoreAnimation(true);
+      setTimeout(() => setScoreAnimation(false), 1000);
     } else if (settings.livesEnabled) {
       // Only deduct lives if the feature is enabled
       setLives((prev) => prev - 1);
@@ -92,6 +101,7 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
 
     // Move to the next question after a delay, but keep the timer running
     setTimeout(() => {
+      setFeedbackAnimation(false); // Reset animation before moving to next question
       moveToNextQuestion();
     }, 1500);
   };
@@ -155,9 +165,9 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
             ))}
           </div>
         )}
-        <div className={`font-pixel text-sm bg-black text-white p-3 rounded-lg border-2 border-gray-800 ${!settings.livesEnabled ? 'ml-auto' : ''}`}>
+        <div className={`font-pixel text-sm bg-black text-white p-3 rounded-lg border-2 border-gray-800 ${!settings.livesEnabled ? 'ml-auto' : ''} ${scoreAnimation ? 'animate-bounce' : ''}`}>
           <span className="mr-2">SCORE:</span>
-          <span className="text-pixel-yellow">{score}</span>
+          <span className={`text-pixel-yellow ${scoreAnimation ? 'text-2xl' : ''}`}>{score}</span>
         </div>
       </div>
 
@@ -205,11 +215,11 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
                 <button 
                   key={index}
                   onClick={() => handleAnswerClick(index)}
-                  className={`w-full text-left px-4 py-4 font-pixel-text text-lg border-4 border-black flex items-center ${
+                  className={`w-full text-left px-4 py-4 font-pixel-text text-lg border-4 border-black flex items-center transition-all duration-200 ${
                     selectedAnswer === index 
                       ? isAnswerCorrect 
-                        ? 'bg-green-100' 
-                        : 'bg-white'
+                        ? 'bg-green-100 border-green-500 shake-correct' 
+                        : 'bg-red-100 border-red-500 shake-incorrect'
                       : 'bg-white hover:bg-gray-100'
                   }`}
                   disabled={selectedAnswer !== null || !isTimerRunning}
@@ -224,20 +234,49 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
             
             {/* Feedback message */}
             {isAnswerCorrect !== null && (
-              <div className="mt-6 p-4 text-center font-pixel border-4 border-black bg-green-100 text-black">
+              <div className={`mt-6 p-4 text-center font-pixel border-4 border-black ${
+                isAnswerCorrect 
+                  ? 'bg-green-100 border-green-500 text-green-800' 
+                  : 'bg-red-100 border-red-500 text-red-800'
+                } ${feedbackAnimation ? 'animate-pulse' : ''}`}>
                 {isAnswerCorrect 
-                  ? 'Correct! Good job!' 
+                  ? 'Correct! Good job! ✅' 
                   : settings.livesEnabled 
-                    ? 'Incorrect! You lost a life!' 
-                    : 'Incorrect! Try the next question.'}
-                <div className="mt-2 text-center text-green-600">
-                  <span>▼</span>
+                    ? 'Incorrect! You lost a life! ❌' 
+                    : 'Incorrect! Try the next question. ❌'}
+                <div className="mt-2 text-center">
+                  <span className={isAnswerCorrect ? 'text-green-600' : 'text-red-600'}>▼</span>
                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Add these CSS animations to your index.css file */}
+      <style jsx>{`
+        @keyframes shake-correct {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px) translateY(-5px); }
+          50% { transform: translateX(5px) translateY(5px); }
+          75% { transform: translateX(-5px) translateY(5px); }
+        }
+        
+        @keyframes shake-incorrect {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-8px); }
+          50% { transform: translateX(8px); }
+          75% { transform: translateX(-8px); }
+        }
+        
+        .shake-correct {
+          animation: shake-correct 0.5s ease-in-out;
+        }
+        
+        .shake-incorrect {
+          animation: shake-incorrect 0.5s ease-in-out;
+        }
+      `}</style>
     </div>
   );
 }
