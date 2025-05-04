@@ -314,10 +314,10 @@ export default function AdminPanel() {
                     
                     <form onSubmit={questionForm.handleSubmit(onSubmitQuestion)}>
                       <div className="mb-4">
-                        <label className="block font-pixel text-sm mb-2">Question:</label>
+                        <label className="block font-pixel text-base mb-2">Question:</label>
                         <input 
                           {...questionForm.register("question")}
-                          className="w-full px-3 py-2 border-4 border-black font-pixel-text" 
+                          className="w-full px-4 py-3 border-4 border-black font-pixel-text text-lg" 
                           placeholder="Enter question"
                         />
                         {questionForm.formState.errors.question && (
@@ -328,8 +328,8 @@ export default function AdminPanel() {
                       </div>
                       
                       <div className="mb-4">
-                        <label className="block font-pixel text-sm mb-2">Answers:</label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <label className="block font-pixel text-base mb-2">Answers:</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {[0, 1, 2, 3].map((index) => (
                             <div key={index} className="flex items-center">
                               <input 
@@ -338,14 +338,14 @@ export default function AdminPanel() {
                                 value={index}
                                 checked={questionForm.watch("correctAnswer") === index}
                                 onChange={() => questionForm.setValue("correctAnswer", index)}
-                                className="mr-2"
+                                className="mr-2 w-5 h-5"
                               />
-                              <div className="inline-flex w-7 h-7 bg-black text-white font-pixel items-center justify-center mr-2">
+                              <div className="inline-flex w-8 h-8 bg-black text-white font-pixel items-center justify-center mr-3 text-base">
                                 {String.fromCharCode(65 + index)}
                               </div>
                               <input 
                                 {...questionForm.register(`options.${index}`)}
-                                className="w-full px-3 py-2 border-4 border-black font-pixel-text" 
+                                className="w-full px-4 py-3 border-4 border-black font-pixel-text text-lg" 
                                 placeholder={`Option ${String.fromCharCode(65 + index)}`}
                               />
                             </div>
@@ -356,16 +356,16 @@ export default function AdminPanel() {
                             {questionForm.formState.errors.options.message}
                           </p>
                         )}
-                        <p className="text-xs font-pixel mt-2 text-gray-600">* Select the radio button for the correct answer</p>
+                        <p className="text-sm font-pixel mt-3 text-gray-600">* Select the radio button for the correct answer</p>
                       </div>
 
                       <div className="mb-4">
-                        <label className="block font-pixel text-sm mb-2">Points:</label>
+                        <label className="block font-pixel text-base mb-2">Points:</label>
                         <input 
                           type="number"
                           {...questionForm.register("points", { valueAsNumber: true })}
                           min="1"
-                          className="w-full px-3 py-2 border-4 border-black font-pixel-text" 
+                          className="w-full px-4 py-3 border-4 border-black font-pixel-text text-lg" 
                           placeholder="Points for correct answer (default: 50)"
                         />
                         {questionForm.formState.errors.points && (
@@ -380,14 +380,14 @@ export default function AdminPanel() {
                           <button 
                             type="button" 
                             onClick={handleCancelEdit}
-                            className="bg-gray-500 text-white font-pixel px-4 py-2 border-2 border-black hover:bg-gray-600"
+                            className="bg-gray-500 text-white font-pixel px-4 py-2 border-2 border-black hover:bg-gray-600 text-base"
                           >
                             CANCEL
                           </button>
                         )}
                         <button 
                           type="submit" 
-                          className="bg-green-500 text-white font-pixel px-4 py-2 border-2 border-black hover:bg-green-600"
+                          className="bg-green-500 text-white font-pixel px-5 py-3 border-2 border-black hover:bg-green-600 text-base"
                           disabled={createQuestionMutation.isPending || updateQuestionMutation.isPending}
                         >
                           {editingQuestion ? "UPDATE" : "SAVE"}

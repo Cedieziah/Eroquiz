@@ -297,7 +297,7 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
                   <button 
                     key={index}
                     onClick={() => handleAnswerClick(index)}
-                    className={`w-full text-left px-4 py-4 font-pixel-text text-lg border-4 border-black flex items-center transition-all duration-200 ${
+                    className={`w-full text-left px-4 py-5 font-pixel-text text-xl border-4 border-black flex items-center transition-all duration-200 ${
                       selectedAnswer === index 
                         ? isAnswerCorrect 
                           ? 'bg-green-100 border-green-500 shake-correct' 
@@ -306,7 +306,7 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
                     }`}
                     disabled={selectedAnswer !== null || !isTimerRunning}
                   >
-                    <span className="inline-block w-8 h-8 bg-black text-white font-pixel flex items-center justify-center mr-3">
+                    <span className="inline-block w-10 h-10 bg-black text-white font-pixel flex items-center justify-center mr-4 text-lg">
                       {String.fromCharCode(65 + index)}
                     </span>
                     <span>{option}</span>
