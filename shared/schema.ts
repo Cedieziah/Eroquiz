@@ -24,6 +24,7 @@ export const questions = pgTable("questions", {
   options: json("options").$type<string[]>().notNull(),
   correctAnswer: integer("correct_answer").notNull(),
   points: integer("points").notNull().default(50), // Default to 50 points
+  category: integer("category").notNull().default(1), // Default to Category 1 (Grades 3-4)
 });
 
 export const insertQuestionSchema = createInsertSchema(questions).pick({
@@ -31,6 +32,7 @@ export const insertQuestionSchema = createInsertSchema(questions).pick({
   options: true,
   correctAnswer: true,
   points: true,
+  category: true, // Add category to schema
 });
 
 // Remove duplicate type definitions - use only the z.infer types

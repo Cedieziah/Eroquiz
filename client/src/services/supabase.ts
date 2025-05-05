@@ -12,6 +12,7 @@ interface ScoreData {
   questionsAnswered: number;
   correctAnswers: number;
   timeSpentSeconds?: number;
+  category: number; // Added category field
 }
 
 export async function saveScore(data: ScoreData) {
@@ -23,7 +24,8 @@ export async function saveScore(data: ScoreData) {
         score: data.score,
         questions_answered: data.questionsAnswered,
         correct_answers: data.correctAnswers,
-        time_spent_seconds: data.timeSpentSeconds || null
+        time_spent_seconds: data.timeSpentSeconds || null,
+        category: data.category // Add category to the saved data
       }]);
     
     if (error) throw error;
@@ -34,13 +36,19 @@ export async function saveScore(data: ScoreData) {
   }
 }
 
-export async function getLeaderboard(limit = 20) {
+export async function getLeaderboard(limit = 20, category?: number) {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('leaderboards')
       .select('*')
-      .order('score', { ascending: false })
-      .limit(limit);
+      .order('score', { ascending: false });
+    
+    // Filter by category if provided
+    if (category) {
+      query = query.eq('category', category);
+    }
+    
+    const { data, error } = await query.limit(limit);
     
     if (error) throw error;
     return data || [];

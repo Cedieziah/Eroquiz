@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Login from "@/components/Login";
+import CategorySelection from "@/components/CategorySelection";
 import Rules from "@/components/Rules";
 import Quiz from "@/components/Quiz";
 import Score from "@/components/Score";
@@ -7,11 +8,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Question, Settings } from "@shared/schema";
 import { saveScore } from '../services/supabase';
 
-type GameStage = "login" | "rules" | "quiz" | "score";
+type GameStage = "login" | "category" | "rules" | "quiz" | "score";
 
 export default function Home() {
   const [gameStage, setGameStage] = useState<GameStage>("login");
   const [playerName, setPlayerName] = useState<string>("");
+  const [playerCategory, setPlayerCategory] = useState<number>(1);
   const [score, setScore] = useState<number>(0);
   const [correctAnswers, setCorrectAnswers] = useState<number>(0);
   const [questionsAnswered, setQuestionsAnswered] = useState<number>(0);
@@ -52,9 +54,14 @@ export default function Home() {
   
   const handleStartGame = (name: string) => {
     setPlayerName(name);
+    setGameStage("category");
+  };
+
+  const handleCategorySelect = (category: number) => {
+    setPlayerCategory(category);
     setGameStage("rules");
     
-    // Prefetch again just to be sure data is ready when moving to rules
+    // Prefetch data when category is selected
     queryClient.prefetchQuery({
       queryKey: ["/api/questions"],
       staleTime: Infinity,
@@ -93,6 +100,7 @@ export default function Home() {
           score: finalScore,
           questionsAnswered: answered,
           correctAnswers: correct,
+          category: playerCategory, // Add category to local storage
         }),
       }).catch(error => {
         console.error("Failed to save game session locally:", error);
@@ -104,7 +112,8 @@ export default function Home() {
         score: finalScore,
         questionsAnswered: answered,
         correctAnswers: correct,
-        timeSpentSeconds: timeSpent
+        timeSpentSeconds: timeSpent,
+        category: playerCategory // Add category to Supabase
       }).catch(error => {
         console.error("Failed to save score to Supabase:", error);
       });
@@ -122,6 +131,7 @@ export default function Home() {
   const handleBackToMain = () => {
     setGameStage("login");
     setPlayerName("");
+    setPlayerCategory(1);
   };
   
   // Loading indicator - only show when absolutely necessary
@@ -141,6 +151,13 @@ export default function Home() {
         <Login onStartGame={handleStartGame} />
       )}
       
+      {gameStage === "category" && (
+        <CategorySelection 
+          onCategorySelect={handleCategorySelect} 
+          playerName={playerName} 
+        />
+      )}
+      
       {gameStage === "rules" && (
         <Rules onStartQuiz={handleStartQuiz} />
       )}
@@ -150,6 +167,7 @@ export default function Home() {
           questions={questions} 
           settings={settings}
           onQuizEnd={handleQuizEnd}
+          category={playerCategory} // Pass category to Quiz
         />
       )}
       
@@ -161,6 +179,7 @@ export default function Home() {
           correctAnswers={correctAnswers}
           onPlayAgain={handlePlayAgain}
           onBackToMain={handleBackToMain}
+          category={playerCategory}
         />
       )}
       

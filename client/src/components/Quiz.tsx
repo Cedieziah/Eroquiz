@@ -5,13 +5,15 @@ import { Question, Settings } from "@shared/schema";
 interface QuizProps {
   questions: Question[];
   settings: Settings;
-  onQuizEnd: (score: number, answered: number, correct: number) => void;
+  onQuizEnd: (score: number, answered: number, correct: number, timeSpent?: number) => void;
+  category: number; // Add category prop
 }
 
-export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
+export default function Quiz({ questions, settings, onQuizEnd, category }: QuizProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [lives, setLives] = useState(settings.lives);
   const [score, setScore] = useState(0);
+  const [startTime, setStartTime] = useState<number>(Date.now());
   
   // Replace per-question timer with quiz timer
   const [quizTimeLeft, setQuizTimeLeft] = useState(settings.quizDurationSeconds);
@@ -34,28 +36,39 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
   const timerRef = useRef<number | null>(null);
   const shuffledQuestionsRef = useRef<Question[]>([]);
 
-  // Shuffle and prepare questions immediately on mount
+  // Filter questions by category and shuffle them on mount
   useEffect(() => {
     if (questions && questions.length > 0) {
-      shuffledQuestionsRef.current = [...questions].sort(() => Math.random() - 0.5);
-      console.log(`Loaded ${shuffledQuestionsRef.current.length} questions`);
+      // Filter questions by the selected category
+      const categoryQuestions = questions.filter(q => q.category === category);
+      
+      if (categoryQuestions.length > 0) {
+        shuffledQuestionsRef.current = [...categoryQuestions].sort(() => Math.random() - 0.5);
+        console.log(`Loaded ${shuffledQuestionsRef.current.length} questions for category ${category}`);
+      } else {
+        // Fallback to all questions if no questions found for this category
+        console.log(`No questions found for category ${category}, using all questions`);
+        shuffledQuestionsRef.current = [...questions].sort(() => Math.random() - 0.5);
+      }
       
       // Mark the first question as visited when quiz starts
       setVisitedQuestionsMap(prev => ({ ...prev, 0: true }));
       setIsLoading(false);
+      setStartTime(Date.now());
     } else {
       console.log("No questions available yet", questions);
     }
-  }, [questions]);
+  }, [questions, category]);
 
   // Handle quiz end
   useEffect(() => {
     if (quizEnded) {
-      console.log(`Quiz ended: Score ${score}, Answered ${answeredQuestions}, Correct ${correctAnswers}`);
+      const timeSpentSeconds = Math.round((Date.now() - startTime) / 1000);
+      console.log(`Quiz ended: Score ${score}, Answered ${answeredQuestions}, Correct ${correctAnswers}, Time spent: ${timeSpentSeconds}s`);
       console.log(`Total questions: ${shuffledQuestionsRef.current.length}`);
-      onQuizEnd(score, answeredQuestions, correctAnswers);
+      onQuizEnd(score, answeredQuestions, correctAnswers, timeSpentSeconds);
     }
-  }, [quizEnded, score, answeredQuestions, correctAnswers, onQuizEnd]);
+  }, [quizEnded, score, answeredQuestions, correctAnswers, onQuizEnd, startTime]);
 
   // Quiz timer functionality - counts down for the entire quiz
   useEffect(() => {
@@ -216,7 +229,13 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
 
   // If we don't have any questions after loading
   if (!shuffledQuestionsRef.current.length) {
-    return <div className="p-8 text-center font-pixel">No questions available. Please add some questions in the admin panel.</div>;
+    return (
+      <div className="p-8 text-center font-pixel">
+        <h2 className="text-2xl mb-4">No Questions Available</h2>
+        <p className="mb-4">There are no questions available for this category.</p>
+        <p>Please add some questions in the admin panel or select a different category.</p>
+      </div>
+    );
   }
 
   // If the quiz has ended

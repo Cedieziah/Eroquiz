@@ -19,10 +19,20 @@ const questionFormSchema = insertQuestionSchema.extend({
   ).min(2, "At least 2 options are required").max(4, "Maximum 4 options allowed"),
   // Ensure correct answer is valid
   correctAnswer: z.number().min(0).max(3),
-  points: z.number().min(1, "Points must be at least 1").default(50)
+  points: z.number().min(1, "Points must be at least 1").default(50),
+  category: z.number().min(1).max(5).default(1), // Category validation
 });
 
 type QuestionFormValues = z.infer<typeof questionFormSchema>;
+
+// Category definitions for reuse
+const categories = [
+  { id: 1, name: "Category 1", description: "Grades 3-4" },
+  { id: 2, name: "Category 2", description: "Grades 5-6" },
+  { id: 3, name: "Category 3", description: "Grades 7-8" },
+  { id: 4, name: "Category 4", description: "Grades 9-10" },
+  { id: 5, name: "Category 5", description: "Grades 11-12" }
+];
 
 // Updated schema with only relevant fields
 const settingsFormSchema = z.object({
@@ -37,6 +47,7 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<AdminTab>("questions");
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -57,7 +68,8 @@ export default function AdminPanel() {
       question: "",
       options: ["", "", "", ""],
       correctAnswer: 0,
-      points: 50
+      points: 50,
+      category: 1 // Default to Category 1
     }
   });
   
@@ -88,7 +100,8 @@ export default function AdminPanel() {
         question: editingQuestion.question,
         options: [...editingQuestion.options],
         correctAnswer: editingQuestion.correctAnswer,
-        points: editingQuestion.points || 50 // Use question points or default
+        points: editingQuestion.points || 50, // Use question points or default
+        category: editingQuestion.category || 1 // Use question category or default
       });
     }
   }, [editingQuestion, questionForm]);
@@ -115,7 +128,8 @@ export default function AdminPanel() {
         question: "",
         options: ["", "", "", ""],
         correctAnswer: 0,
-        points: 50 // Set default points
+        points: 50, // Set default points
+        category: questionForm.getValues().category // Keep the same category for the next question
       });
       queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
     },
@@ -144,7 +158,8 @@ export default function AdminPanel() {
         question: "",
         options: ["", "", "", ""],
         correctAnswer: 0,
-        points: 50 // Set default points
+        points: 50, // Set default points
+        category: questionForm.getValues().category // Keep the same category for the next question
       });
       queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
     },
@@ -234,7 +249,8 @@ export default function AdminPanel() {
       question: "",
       options: ["", "", "", ""],
       correctAnswer: 0,
-      points: 50 // Set default points
+      points: 50, // Set default points
+      category: questionForm.getValues().category // Keep the same category
     });
   };
   
@@ -243,6 +259,22 @@ export default function AdminPanel() {
     if (confirm("Are you sure you want to delete this question?")) {
       deleteQuestionMutation.mutate(id);
     }
+  };
+  
+  // Filter questions by category
+  const handleFilterByCategory = (category: number | null) => {
+    setSelectedCategory(category);
+  };
+  
+  // Filter the questions list based on selected category
+  const filteredQuestions = selectedCategory 
+    ? questions.filter(q => q.category === selectedCategory) 
+    : questions;
+  
+  // Get category name from ID
+  const getCategoryName = (categoryId: number): string => {
+    const category = categories.find(c => c.id === categoryId);
+    return category ? `${category.name} (${category.description})` : "Unknown";
   };
   
   return (
@@ -295,7 +327,8 @@ export default function AdminPanel() {
                           question: "",
                           options: ["", "", "", ""],
                           correctAnswer: 0,
-                          points: 50
+                          points: 50,
+                          category: questionForm.getValues().category // Keep category
                         });
                       }
                     }}
@@ -303,6 +336,36 @@ export default function AdminPanel() {
                   >
                     {showAddForm && !editingQuestion ? "HIDE FORM" : "ADD QUESTION"}
                   </button>
+                </div>
+
+                {/* Category Filter */}
+                <div className="mb-4">
+                  <div className="font-pixel text-base mb-2">Filter by category:</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => handleFilterByCategory(null)}
+                      className={`px-3 py-2 border-2 border-black font-pixel text-sm ${
+                        selectedCategory === null 
+                          ? "bg-pixel-blue text-white" 
+                          : "bg-gray-100 hover:bg-gray-200"
+                      }`}
+                    >
+                      All Categories
+                    </button>
+                    {categories.map((category) => (
+                      <button
+                        key={category.id}
+                        onClick={() => handleFilterByCategory(category.id)}
+                        className={`px-3 py-2 border-2 border-black font-pixel text-sm ${
+                          selectedCategory === category.id 
+                            ? "bg-pixel-blue text-white" 
+                            : "bg-gray-100 hover:bg-gray-200"
+                        }`}
+                      >
+                        {category.name} ({category.description})
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Collapsible Add/Edit Question Form */}
@@ -313,6 +376,37 @@ export default function AdminPanel() {
                     </h3>
                     
                     <form onSubmit={questionForm.handleSubmit(onSubmitQuestion)}>
+                      <div className="mb-4">
+                        <label className="block font-pixel text-base mb-2">Category:</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+                          {categories.map((category) => (
+                            <label 
+                              key={category.id} 
+                              className={`cursor-pointer p-3 border-4 ${
+                                questionForm.watch("category") === category.id 
+                                  ? "border-pixel-blue bg-gray-100" 
+                                  : "border-black hover:bg-gray-50"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                value={category.id}
+                                checked={questionForm.watch("category") === category.id}
+                                onChange={() => questionForm.setValue("category", category.id)}
+                                className="sr-only"
+                              />
+                              <div className="font-pixel text-sm">{category.name}</div>
+                              <div className="text-xs font-pixel-text">{category.description}</div>
+                            </label>
+                          ))}
+                        </div>
+                        {questionForm.formState.errors.category && (
+                          <p className="text-pixel-red text-xs mt-1 font-pixel">
+                            {questionForm.formState.errors.category.message}
+                          </p>
+                        )}
+                      </div>
+                      
                       <div className="mb-4">
                         <label className="block font-pixel text-base mb-2">Question:</label>
                         <input 
@@ -403,9 +497,13 @@ export default function AdminPanel() {
                     <div className="flex justify-center items-center h-60">
                       <p className="font-pixel-text text-lg">Loading questions...</p>
                     </div>
-                  ) : questions.length === 0 ? (
+                  ) : filteredQuestions.length === 0 ? (
                     <div className="flex flex-col justify-center items-center h-60">
-                      <p className="font-pixel-text text-lg mb-4">No questions yet!</p>
+                      <p className="font-pixel-text text-lg mb-4">
+                        {selectedCategory 
+                          ? `No questions yet for ${getCategoryName(selectedCategory)}!` 
+                          : "No questions yet!"}
+                      </p>
                       <button 
                         onClick={() => setShowAddForm(true)}
                         className="bg-blue-500 text-white font-pixel px-4 py-2 border-2 border-black hover:bg-blue-600"
@@ -419,16 +517,20 @@ export default function AdminPanel() {
                         <thead className="sticky top-0 bg-gray-100">
                           <tr>
                             <th className="border-b-4 border-r-4 border-black px-4 py-2 text-left font-pixel text-sm w-[5%]">ID</th>
-                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-left font-pixel text-sm w-[65%]">Question</th>
-                            <th className="border-b-4 border-black px-4 py-2 text-center font-pixel text-sm w-[15%]">Points</th>
+                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-left font-pixel text-sm w-[50%]">Question</th>
+                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-center font-pixel text-sm w-[15%]">Category</th>
+                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-center font-pixel text-sm w-[15%]">Points</th>
                             <th className="border-b-4 border-black px-4 py-2 text-center font-pixel text-sm w-[15%]">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {questions.map((question, index) => (
+                          {filteredQuestions.map((question, index) => (
                             <tr key={question.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-black`}>
                               <td className="border-r-4 border-black px-4 py-2 font-pixel-text">{question.id}</td>
                               <td className="border-r-4 border-black px-4 py-2 font-pixel-text">{question.question}</td>
+                              <td className="border-r-4 border-black px-4 py-2 font-pixel-text text-center">
+                                {question.category ? getCategoryName(question.category) : "Category 1"}
+                              </td>
                               <td className="border-r-4 border-black px-4 py-2 font-pixel-text text-center">{question.points || 50}</td>
                               <td className="px-2 py-2 text-center">
                                 <button 
