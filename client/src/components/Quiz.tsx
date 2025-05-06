@@ -139,6 +139,14 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
     
     // Count the total number of answered questions
     const totalAnsweredQuestions = Object.values(answeredQuestionsMap).filter(Boolean).length;
+    
+    // Special handling for single-question quizzes - immediately end quiz
+    if (shuffledQuestionsRef.current.length === 1) {
+      console.log("Single question quiz completed - ending quiz");
+      setQuizEnded(true);
+      return;
+    }
+    
     const allQuestionsAnswered = totalAnsweredQuestions === shuffledQuestionsRef.current.length;
     
     // If all questions have been answered, end the quiz
