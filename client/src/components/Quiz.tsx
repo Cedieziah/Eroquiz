@@ -33,6 +33,9 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
   const [visitedQuestionsMap, setVisitedQuestionsMap] = useState<Record<number, boolean>>({});
   const [showNavigationTooltip, setShowNavigationTooltip] = useState(false);
 
+  // For handling image errors
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
   const timerRef = useRef<number | null>(null);
   const shuffledQuestionsRef = useRef<Question[]>([]);
 
@@ -215,6 +218,11 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
     setShowNavigationTooltip(prev => !prev);
   };
 
+  // Handle image load error
+  const handleImageError = (imageUrl: string) => {
+    setImageErrors(prev => ({ ...prev, [imageUrl]: true }));
+  };
+
   // Format time to display as MM:SS
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -251,6 +259,9 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
   }
 
   const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];
+  const hasQuestionImage = currentQuestion.questionImage && !imageErrors[currentQuestion.questionImage];
+  const hasOptionImages = currentQuestion.optionImages && 
+    currentQuestion.optionImages.some(img => img && !imageErrors[img]);
   
   return (
     <div className="relative">
@@ -307,30 +318,63 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
 
             {/* Question Card */}
             <div className="bg-white p-6">
-              <div className="border-l-4 border-pixel-yellow pl-4 mb-8">
+              <div className="border-l-4 border-pixel-yellow pl-4 mb-6">
                 <h3 className="font-pixel text-lg">{currentQuestion.question}</h3>
+                
+                {/* Question Image */}
+                {hasQuestionImage && (
+                  <div className="mt-4 bg-gray-50 p-3 border-2 border-black rounded-md flex justify-center">
+                    <img 
+                      src={currentQuestion.questionImage} 
+                      alt="Question Visual" 
+                      className="max-h-64 object-contain"
+                      onError={() => handleImageError(currentQuestion.questionImage || "")}
+                    />
+                  </div>
+                )}
               </div>
               
               <div className="space-y-4">
-                {currentQuestion.options.map((option, index) => (
-                  <button 
-                    key={index}
-                    onClick={() => handleAnswerClick(index)}
-                    className={`w-full text-left px-4 py-5 font-pixel-text text-xl border-4 border-black flex items-center transition-all duration-200 ${
-                      selectedAnswer === index 
-                        ? isAnswerCorrect 
-                          ? 'bg-green-100 border-green-500 shake-correct' 
-                          : 'bg-red-100 border-red-500 shake-incorrect'
-                        : 'bg-white hover:bg-gray-100'
-                    }`}
-                    disabled={selectedAnswer !== null || !isTimerRunning}
-                  >
-                    <span className="inline-block w-10 h-10 bg-black text-white font-pixel flex items-center justify-center mr-4 text-lg">
-                      {String.fromCharCode(65 + index)}
-                    </span>
-                    <span>{option}</span>
-                  </button>
-                ))}
+                {currentQuestion.options.map((option, index) => {
+                  const optionImage = currentQuestion.optionImages?.[index];
+                  const hasOptionImage = optionImage && !imageErrors[optionImage];
+                  
+                  return (
+                    <button 
+                      key={index}
+                      onClick={() => handleAnswerClick(index)}
+                      className={`w-full text-left px-4 py-5 font-pixel-text text-xl border-4 border-black transition-all duration-200 ${
+                        selectedAnswer === index 
+                          ? isAnswerCorrect 
+                            ? 'bg-green-100 border-green-500 shake-correct' 
+                            : 'bg-red-100 border-red-500 shake-incorrect'
+                          : 'bg-white hover:bg-gray-100'
+                      }`}
+                      disabled={selectedAnswer !== null || !isTimerRunning}
+                    >
+                      <div className="flex items-center">
+                        <span className="inline-block w-10 h-10 bg-black text-white font-pixel flex items-center justify-center mr-4 text-lg">
+                          {String.fromCharCode(65 + index)}
+                        </span>
+                        <span>{option}</span>
+                      </div>
+                      
+                      {/* Option Image */}
+                      {hasOptionImage && (
+                        <div className="mt-2 ml-14 flex justify-start">
+                          <div className="border-2 border-gray-300 p-2 rounded bg-gray-50 inline-block">
+                            <img 
+                              src={optionImage} 
+                              alt={`Option ${String.fromCharCode(65 + index)}`}
+                              className="max-h-24 object-contain"
+                              onError={() => handleImageError(optionImage)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               
               {/* Feedback message */}

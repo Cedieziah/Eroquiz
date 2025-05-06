@@ -13,10 +13,14 @@ type AdminTab = "questions" | "settings";
 const questionFormSchema = insertQuestionSchema.extend({
   // Update schema to require non-empty question text
   question: z.string().min(1, "Question text is required"),
+  // Optional image URL for question
+  questionImage: z.string().optional(),
   // Ensure options are provided correctly with non-empty strings
   options: z.array(
     z.string().min(1, "Answer option cannot be empty")
   ).min(2, "At least 2 options are required").max(4, "Maximum 4 options allowed"),
+  // Optional image URLs for options
+  optionImages: z.array(z.string().optional()).length(4).optional(),
   // Ensure correct answer is valid
   correctAnswer: z.number().min(0).max(3),
   points: z.number().min(1, "Points must be at least 1").default(50),
@@ -48,6 +52,8 @@ export default function AdminPanel() {
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [previewQuestionImage, setPreviewQuestionImage] = useState<string | null>(null);
+  const [previewOptionImages, setPreviewOptionImages] = useState<(string | null)[]>([null, null, null, null]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -66,7 +72,9 @@ export default function AdminPanel() {
     resolver: zodResolver(questionFormSchema),
     defaultValues: {
       question: "",
+      questionImage: "",
       options: ["", "", "", ""],
+      optionImages: ["", "", "", ""],
       correctAnswer: 0,
       points: 50,
       category: 1 // Default to Category 1
@@ -98,11 +106,21 @@ export default function AdminPanel() {
     if (editingQuestion) {
       questionForm.reset({
         question: editingQuestion.question,
+        questionImage: editingQuestion.questionImage || "",
         options: [...editingQuestion.options],
+        optionImages: editingQuestion.optionImages || ["", "", "", ""],
         correctAnswer: editingQuestion.correctAnswer,
-        points: editingQuestion.points || 50, // Use question points or default
-        category: editingQuestion.category || 1 // Use question category or default
+        points: editingQuestion.points || 50,
+        category: editingQuestion.category || 1
       });
+      
+      // Set preview images
+      setPreviewQuestionImage(editingQuestion.questionImage || null);
+      setPreviewOptionImages(
+        editingQuestion.optionImages 
+          ? [...editingQuestion.optionImages.map(img => img || null)]
+          : [null, null, null, null]
+      );
     }
   }, [editingQuestion, questionForm]);
   
@@ -116,7 +134,13 @@ export default function AdminPanel() {
   // Create question mutation
   const createQuestionMutation = useMutation({
     mutationFn: async (data: QuestionFormValues) => {
-      const res = await apiRequest("POST", "/api/questions", data);
+      // Clean up empty image URLs
+      const cleanedData = {
+        ...data,
+        questionImage: data.questionImage || null,
+        optionImages: data.optionImages?.map(img => img || null) || null
+      };
+      const res = await apiRequest("POST", "/api/questions", cleanedData);
       return res.json();
     },
     onSuccess: () => {
@@ -124,13 +148,23 @@ export default function AdminPanel() {
         title: "Success",
         description: "Question created successfully!",
       });
+      
+      // Reset the form but keep the same category
+      const keepCategory = questionForm.getValues().category;
       questionForm.reset({
         question: "",
+        questionImage: "",
         options: ["", "", "", ""],
+        optionImages: ["", "", "", ""],
         correctAnswer: 0,
-        points: 50, // Set default points
-        category: questionForm.getValues().category // Keep the same category for the next question
+        points: 50,
+        category: keepCategory
       });
+      
+      // Reset preview images
+      setPreviewQuestionImage(null);
+      setPreviewOptionImages([null, null, null, null]);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
     },
     onError: (error) => {
@@ -145,7 +179,13 @@ export default function AdminPanel() {
   // Update question mutation
   const updateQuestionMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: QuestionFormValues }) => {
-      const res = await apiRequest("PUT", `/api/questions/${id}`, data);
+      // Clean up empty image URLs
+      const cleanedData = {
+        ...data,
+        questionImage: data.questionImage || null,
+        optionImages: data.optionImages?.map(img => img || null) || null
+      };
+      const res = await apiRequest("PUT", `/api/questions/${id}`, cleanedData);
       return res.json();
     },
     onSuccess: () => {
@@ -154,13 +194,23 @@ export default function AdminPanel() {
         description: "Question updated successfully!",
       });
       setEditingQuestion(null);
+      
+      // Reset the form but keep the same category
+      const keepCategory = questionForm.getValues().category;
       questionForm.reset({
         question: "",
+        questionImage: "",
         options: ["", "", "", ""],
+        optionImages: ["", "", "", ""],
         correctAnswer: 0,
-        points: 50, // Set default points
-        category: questionForm.getValues().category // Keep the same category for the next question
+        points: 50,
+        category: keepCategory
       });
+      
+      // Reset preview images
+      setPreviewQuestionImage(null);
+      setPreviewOptionImages([null, null, null, null]);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
     },
     onError: (error) => {
@@ -245,15 +295,24 @@ export default function AdminPanel() {
   // Cancel editing and reset form
   const handleCancelEdit = () => {
     setEditingQuestion(null);
+    
+    // Reset the form but keep the category
+    const keepCategory = questionForm.getValues().category;
     questionForm.reset({
       question: "",
+      questionImage: "",
       options: ["", "", "", ""],
+      optionImages: ["", "", "", ""],
       correctAnswer: 0,
-      points: 50, // Set default points
-      category: questionForm.getValues().category // Keep the same category
+      points: 50,
+      category: keepCategory
     });
+    
+    // Reset preview images
+    setPreviewQuestionImage(null);
+    setPreviewOptionImages([null, null, null, null]);
   };
-  
+
   // Handle delete confirmation
   const handleDeleteQuestion = (id: number) => {
     if (confirm("Are you sure you want to delete this question?")) {
@@ -275,6 +334,41 @@ export default function AdminPanel() {
   const getCategoryName = (categoryId: number): string => {
     const category = categories.find(c => c.id === categoryId);
     return category ? `${category.name} (${category.description})` : "Unknown";
+  };
+
+  // Handle question image URL change
+  const handleQuestionImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value;
+    questionForm.setValue("questionImage", url);
+    setPreviewQuestionImage(url || null);
+  };
+
+  // Handle option image URL change
+  const handleOptionImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value;
+    const currentOptionImages = questionForm.getValues().optionImages || ["", "", "", ""];
+    const newOptionImages = [...currentOptionImages];
+    newOptionImages[index] = url;
+    questionForm.setValue("optionImages", newOptionImages);
+    
+    // Update preview
+    const newPreviewOptionImages = [...previewOptionImages];
+    newPreviewOptionImages[index] = url || null;
+    setPreviewOptionImages(newPreviewOptionImages);
+  };
+
+  // Get image icon based on whether an image is present
+  const getImageIcon = (hasImage: boolean) => {
+    return hasImage 
+      ? "🖼️" // Image present
+      : "📄"; // Text only
+  };
+
+  // Update the part where the category value is set when clicking the radio button
+  const handleCategoryChange = (categoryId: number) => {
+    console.log(`Setting category to: ${categoryId}`);
+    // Ensure it's a number
+    questionForm.setValue("category", Number(categoryId));
   };
   
   return (
@@ -325,11 +419,15 @@ export default function AdminPanel() {
                       if (editingQuestion) {
                         questionForm.reset({
                           question: "",
+                          questionImage: "",
                           options: ["", "", "", ""],
+                          optionImages: ["", "", "", ""],
                           correctAnswer: 0,
                           points: 50,
-                          category: questionForm.getValues().category // Keep category
+                          category: questionForm.getValues().category
                         });
+                        setPreviewQuestionImage(null);
+                        setPreviewOptionImages([null, null, null, null]);
                       }
                     }}
                     className="bg-blue-500 text-white font-pixel px-4 py-2 border-2 border-black hover:bg-blue-600"
@@ -392,7 +490,7 @@ export default function AdminPanel() {
                                 type="radio"
                                 value={category.id}
                                 checked={questionForm.watch("category") === category.id}
-                                onChange={() => questionForm.setValue("category", category.id)}
+                                onChange={() => handleCategoryChange(category.id)}
                                 className="sr-only"
                               />
                               <div className="font-pixel text-sm">{category.name}</div>
@@ -421,27 +519,86 @@ export default function AdminPanel() {
                         )}
                       </div>
                       
+                      {/* Question Image URL */}
+                      <div className="mb-4">
+                        <label className="block font-pixel text-base mb-2">Question Image (Optional):</label>
+                        <input 
+                          type="text"
+                          {...questionForm.register("questionImage")}
+                          className="w-full px-4 py-3 border-4 border-black font-pixel-text text-lg" 
+                          placeholder="Enter image URL (optional)"
+                          onChange={handleQuestionImageChange}
+                        />
+                        
+                        {/* Image Preview */}
+                        {previewQuestionImage && (
+                          <div className="mt-2 border-4 border-black p-2 bg-white">
+                            <p className="font-pixel text-sm mb-2">Image Preview:</p>
+                            <div className="flex justify-center">
+                              <img 
+                                src={previewQuestionImage} 
+                                alt="Question" 
+                                className="max-h-40 object-contain"
+                                onError={() => setPreviewQuestionImage(null)}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
                       <div className="mb-4">
                         <label className="block font-pixel text-base mb-2">Answers:</label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4">
                           {[0, 1, 2, 3].map((index) => (
-                            <div key={index} className="flex items-center">
-                              <input 
-                                type="radio"
-                                id={`correct-answer-${index}`}
-                                value={index}
-                                checked={questionForm.watch("correctAnswer") === index}
-                                onChange={() => questionForm.setValue("correctAnswer", index)}
-                                className="mr-2 w-5 h-5"
-                              />
-                              <div className="inline-flex w-8 h-8 bg-black text-white font-pixel items-center justify-center mr-3 text-base">
-                                {String.fromCharCode(65 + index)}
+                            <div key={index} className="p-4 border-4 border-black bg-white">
+                              <div className="flex items-center mb-2">
+                                <input 
+                                  type="radio"
+                                  id={`correct-answer-${index}`}
+                                  value={index}
+                                  checked={questionForm.watch("correctAnswer") === index}
+                                  onChange={() => questionForm.setValue("correctAnswer", index)}
+                                  className="mr-2 w-5 h-5"
+                                />
+                                <div className="inline-flex w-8 h-8 bg-black text-white font-pixel items-center justify-center mr-3 text-base">
+                                  {String.fromCharCode(65 + index)}
+                                </div>
+                                <input 
+                                  {...questionForm.register(`options.${index}`)}
+                                  className="w-full px-4 py-3 border-4 border-black font-pixel-text text-lg" 
+                                  placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                                />
                               </div>
-                              <input 
-                                {...questionForm.register(`options.${index}`)}
-                                className="w-full px-4 py-3 border-4 border-black font-pixel-text text-lg" 
-                                placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                              />
+                              
+                              {/* Option Image URL */}
+                              <div className="mt-2 ml-10">
+                                <label className="block font-pixel text-sm mb-1">Option Image (Optional):</label>
+                                <input 
+                                  type="text"
+                                  value={questionForm.watch(`optionImages.${index}`) || ""}
+                                  onChange={(e) => handleOptionImageChange(index, e)}
+                                  className="w-full px-4 py-2 border-4 border-black font-pixel-text text-base" 
+                                  placeholder="Enter image URL (optional)"
+                                />
+                                
+                                {/* Option Image Preview */}
+                                {previewOptionImages[index] && (
+                                  <div className="mt-2 border-2 border-black p-2 bg-gray-50">
+                                    <div className="flex justify-center">
+                                      <img 
+                                        src={previewOptionImages[index] || ""} 
+                                        alt={`Option ${String.fromCharCode(65 + index)}`} 
+                                        className="max-h-24 object-contain"
+                                        onError={() => {
+                                          const newPreview = [...previewOptionImages];
+                                          newPreview[index] = null;
+                                          setPreviewOptionImages(newPreview);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -517,9 +674,10 @@ export default function AdminPanel() {
                         <thead className="sticky top-0 bg-gray-100">
                           <tr>
                             <th className="border-b-4 border-r-4 border-black px-4 py-2 text-left font-pixel text-sm w-[5%]">ID</th>
-                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-left font-pixel text-sm w-[50%]">Question</th>
+                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-left font-pixel text-sm w-[45%]">Question</th>
+                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-center font-pixel text-sm w-[10%]">Type</th>
                             <th className="border-b-4 border-r-4 border-black px-4 py-2 text-center font-pixel text-sm w-[15%]">Category</th>
-                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-center font-pixel text-sm w-[15%]">Points</th>
+                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-center font-pixel text-sm w-[10%]">Points</th>
                             <th className="border-b-4 border-black px-4 py-2 text-center font-pixel text-sm w-[15%]">Actions</th>
                           </tr>
                         </thead>
@@ -527,7 +685,23 @@ export default function AdminPanel() {
                           {filteredQuestions.map((question, index) => (
                             <tr key={question.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-black`}>
                               <td className="border-r-4 border-black px-4 py-2 font-pixel-text">{question.id}</td>
-                              <td className="border-r-4 border-black px-4 py-2 font-pixel-text">{question.question}</td>
+                              <td className="border-r-4 border-black px-4 py-2 font-pixel-text">
+                                {question.question}
+                                {question.questionImage && (
+                                  <div className="mt-1">
+                                    <img 
+                                      src={question.questionImage} 
+                                      alt="Question" 
+                                      className="max-h-10 object-contain inline-block mr-2" 
+                                    />
+                                    <span className="text-xs text-gray-500">[Has image]</span>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="border-r-4 border-black px-4 py-2 font-pixel-text text-center">
+                                {getImageIcon(Boolean(question.questionImage))}
+                                {question.optionImages && question.optionImages.some(img => !!img) && " + 🖼️"}
+                              </td>
                               <td className="border-r-4 border-black px-4 py-2 font-pixel-text text-center">
                                 {question.category ? getCategoryName(question.category) : "Category 1"}
                               </td>
