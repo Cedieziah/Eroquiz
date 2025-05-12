@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Leaderboard from './Leaderboard';
+import { useQuery } from '@tanstack/react-query';
 
 interface ScoreProps {
   playerName: string;
@@ -9,6 +10,12 @@ interface ScoreProps {
   onPlayAgain: () => void;
   onBackToMain: () => void;
   category: number;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  description: string;
 }
 
 export default function Score({
@@ -22,20 +29,23 @@ export default function Score({
 }: ScoreProps) {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
+  // Fetch categories from API instead of hardcoding them
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
   if (showLeaderboard) {
     return <Leaderboard onClose={() => setShowLeaderboard(false)} category={category} />;
   }
 
-  // Get category name based on the category ID
+  // Get category name based on the category ID using fetched categories
   const getCategoryName = (categoryId: number): string => {
-    switch (categoryId) {
-      case 1: return "Grades 3-4";
-      case 2: return "Grades 5-6";
-      case 3: return "Grades 7-8";
-      case 4: return "Grades 9-10";
-      case 5: return "Grades 11-12";
-      default: return "Unknown";
+    const foundCategory = categories.find(c => c.id === categoryId);
+    if (foundCategory) {
+      return `${foundCategory.name} (${foundCategory.description})`;
     }
+    return "Unknown";
   };
 
   return (

@@ -208,6 +208,9 @@ export default function AdminPanel() {
       setPreviewQuestionImage(null);
       setPreviewOptionImages([null, null, null, null]);
       
+      // Close the form after successful save
+      setShowAddForm(false);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
     },
     onError: (error) => {
@@ -255,6 +258,9 @@ export default function AdminPanel() {
       // Reset preview images
       setPreviewQuestionImage(null);
       setPreviewOptionImages([null, null, null, null]);
+      
+      // Close the form after successful update
+      setShowAddForm(false);
       
       queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
     },

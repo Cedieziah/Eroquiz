@@ -1,6 +1,8 @@
 // client/src/components/Leaderboard.tsx
 import { useState, useEffect } from 'react';
 import { getLeaderboard } from '../services/supabase';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 interface LeaderboardProps {
   onClose: () => void;
@@ -29,13 +31,16 @@ export default function Leaderboard({ onClose, category }: LeaderboardProps) {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(category);
   
+  // Fetch categories from API instead of hardcoding them
+  const { data: apiCategories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+  
+  // Combine "All Categories" with the fetched categories
   const categories: Category[] = [
     { id: 0, name: "All Categories", description: "All Grades" },
-    { id: 1, name: "Category 1", description: "Grades 3-4" },
-    { id: 2, name: "Category 2", description: "Grades 5-6" },
-    { id: 3, name: "Category 3", description: "Grades 7-8" },
-    { id: 4, name: "Category 4", description: "Grades 9-10" },
-    { id: 5, name: "Category 5", description: "Grades 11-12" }
+    ...apiCategories
   ];
 
   useEffect(() => {
@@ -64,7 +69,11 @@ export default function Leaderboard({ onClose, category }: LeaderboardProps) {
       
       {/* Category selector */}
       <div className="mb-6">
-        <h2 className="font-pixel text-center mb-3">{currentCategory?.name || "All Categories"}</h2>
+        <h2 className="font-pixel text-center mb-3">{currentCategory?.name || "All Categories"}
+          {currentCategory?.description && currentCategory.id !== 0 && (
+            <span className="text-sm text-gray-600 ml-2">({currentCategory.description})</span>
+          )}
+        </h2>
         <div className="grid grid-cols-3 gap-2 mb-4">
           {categories.map((cat) => (
             <button
@@ -77,12 +86,16 @@ export default function Leaderboard({ onClose, category }: LeaderboardProps) {
               }`}
             >
               {cat.name}
+              {cat.description && cat.id !== 0 && (
+                <div className="text-xs mt-1">{cat.description}</div>
+              )}
             </button>
           ))}
         </div>
       </div>
       
-      {loading ? (
+      {/* Show loading indicator while categories or leaderboard are loading */}
+      {categoriesLoading || loading ? (
         <p className="text-center font-pixel-text">Loading scores...</p>
       ) : leaderboard.length === 0 ? (
         <p className="text-center font-pixel-text">No scores recorded yet for this category.</p>
