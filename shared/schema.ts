@@ -17,6 +17,21 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// Category schema
+export const categories = pgTable("categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+});
+
+export const insertCategorySchema = createInsertSchema(categories).pick({
+  name: true,
+  description: true,
+});
+
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type Category = typeof categories.$inferSelect;
+
 // Question schema
 export const questions = pgTable("questions", {
   id: serial("id").primaryKey(),
@@ -26,7 +41,7 @@ export const questions = pgTable("questions", {
   optionImages: json("option_images").$type<string[]>(), // Optional image URLs for answers
   correctAnswer: integer("correct_answer").notNull(),
   points: integer("points").notNull().default(50), // Default to 50 points
-  category: integer("category").notNull().default(1), // Default to Category 1 (Grades 3-4)
+  categories: json("categories").$type<number[]>().notNull().default([1]), // Support multiple categories
 });
 
 export const insertQuestionSchema = createInsertSchema(questions).pick({
@@ -36,7 +51,7 @@ export const insertQuestionSchema = createInsertSchema(questions).pick({
   optionImages: true,
   correctAnswer: true,
   points: true,
-  category: true,
+  categories: true,
 });
 
 // Remove duplicate type definitions - use only the z.infer types

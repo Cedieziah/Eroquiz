@@ -1,26 +1,29 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Category } from "@shared/schema";
 
 interface CategorySelectionProps {
   onCategorySelect: (category: number) => void;
   playerName: string;
 }
 
-interface Category {
-  id: number;
-  name: string;
-  description: string;
-}
-
 export default function CategorySelection({ onCategorySelect, playerName }: CategorySelectionProps) {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   
-  const categories: Category[] = [
+  // Default categories as fallback
+  const defaultCategories: Category[] = [
     { id: 1, name: "Category 1", description: "Grades 3-4" },
     { id: 2, name: "Category 2", description: "Grades 5-6" },
     { id: 3, name: "Category 3", description: "Grades 7-8" },
     { id: 4, name: "Category 4", description: "Grades 9-10" },
     { id: 5, name: "Category 5", description: "Grades 11-12" }
   ];
+
+  // Fetch categories from API
+  const { data: categories = defaultCategories, isLoading } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 
   const handleContinue = () => {
     if (selectedCategory !== null) {

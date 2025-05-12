@@ -3,6 +3,7 @@ import {
   questions, 
   settings, 
   gameSessions,
+  categories,
   type User, 
   type InsertUser,
   type Question,
@@ -10,7 +11,9 @@ import {
   type Settings,
   type InsertSettings,
   type GameSession,
-  type InsertGameSession
+  type InsertGameSession,
+  type Category,
+  type InsertCategory
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -28,6 +31,13 @@ export interface IStorage {
   updateQuestion(id: number, question: Partial<InsertQuestion>): Promise<Question | undefined>;
   deleteQuestion(id: number): Promise<boolean>;
   
+  // Category methods
+  getAllCategories(): Promise<Category[]>;
+  getCategory(id: number): Promise<Category | undefined>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category | undefined>;
+  deleteCategory(id: number): Promise<boolean>;
+  
   // Settings methods
   getSettings(): Promise<Settings>;
   updateSettings(settings: Partial<InsertSettings>): Promise<Settings>;
@@ -40,19 +50,23 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private questions: Map<number, Question>;
+  private categories: Map<number, Category>;
   private gameSettings: Settings;
   private gameSessions: Map<number, GameSession>;
   private currentUserId: number;
   private currentQuestionId: number;
   private currentGameSessionId: number;
+  private currentCategoryId: number;
 
   constructor() {
     this.users = new Map();
     this.questions = new Map();
+    this.categories = new Map();
     this.gameSessions = new Map();
     this.currentUserId = 1;
     this.currentQuestionId = 1;
     this.currentGameSessionId = 1;
+    this.currentCategoryId = 1;
     
     // Initialize with default settings
     this.gameSettings = {
@@ -65,8 +79,25 @@ export class MemStorage implements IStorage {
       livesEnabled: true  // Add the livesEnabled field with default true
     };
     
+    // Add default categories
+    this.createDefaultCategories();
+    
     // Add some default questions
     this.createDefaultQuestions();
+  }
+
+  private createDefaultCategories() {
+    const defaultCategories: InsertCategory[] = [
+      { name: "Category 1", description: "Grades 3-4" },
+      { name: "Category 2", description: "Grades 5-6" },
+      { name: "Category 3", description: "Grades 7-8" },
+      { name: "Category 4", description: "Grades 9-10" },
+      { name: "Category 5", description: "Grades 11-12" }
+    ];
+
+    defaultCategories.forEach(category => {
+      this.createCategory(category);
+    });
   }
 
   private createDefaultQuestions() {
@@ -149,7 +180,12 @@ export class MemStorage implements IStorage {
       ...insertQuestion,
       id,
       options: [...insertQuestion.options], // Ensure options is a string[]
+      questionImage: insertQuestion.questionImage || null,
+      optionImages: insertQuestion.optionImages ? 
+        Array.isArray(insertQuestion.optionImages) ? insertQuestion.optionImages : null : null,
       points: insertQuestion.points ?? 50, // Ensure points is defined with default value
+      categories: insertQuestion.categories ? 
+        Array.isArray(insertQuestion.categories) ? insertQuestion.categories : [1] : [1] // Handle multiple categories
     };
     this.questions.set(id, question);
     return question;
@@ -165,7 +201,13 @@ export class MemStorage implements IStorage {
       ...existingQuestion,
       ...questionUpdate,
       options: questionUpdate.options ? [...questionUpdate.options] : existingQuestion.options,
-      points: questionUpdate.points ?? existingQuestion.points, // Ensure points is defined
+      questionImage: questionUpdate.questionImage !== undefined ? 
+        questionUpdate.questionImage : existingQuestion.questionImage,
+      optionImages: questionUpdate.optionImages !== undefined ?
+        Array.isArray(questionUpdate.optionImages) ? questionUpdate.optionImages : null : existingQuestion.optionImages,
+      points: questionUpdate.points ?? existingQuestion.points,
+      categories: questionUpdate.categories !== undefined ?
+        Array.isArray(questionUpdate.categories) ? questionUpdate.categories : existingQuestion.categories : existingQuestion.categories
     };
     
     this.questions.set(id, updatedQuestion);
@@ -174,6 +216,41 @@ export class MemStorage implements IStorage {
   
   async deleteQuestion(id: number): Promise<boolean> {
     return this.questions.delete(id);
+  }
+  
+  // Category methods
+  async getAllCategories(): Promise<Category[]> {
+    return Array.from(this.categories.values());
+  }
+
+  async getCategory(id: number): Promise<Category | undefined> {
+    return this.categories.get(id);
+  }
+
+  async createCategory(insertCategory: InsertCategory): Promise<Category> {
+    const id = this.currentCategoryId++;
+    const category: Category = { ...insertCategory, id };
+    this.categories.set(id, category);
+    return category;
+  }
+
+  async updateCategory(id: number, categoryUpdate: Partial<InsertCategory>): Promise<Category | undefined> {
+    const existingCategory = this.categories.get(id);
+    if (!existingCategory) {
+      return undefined;
+    }
+
+    const updatedCategory: Category = {
+      ...existingCategory,
+      ...categoryUpdate
+    };
+
+    this.categories.set(id, updatedCategory);
+    return updatedCategory;
+  }
+
+  async deleteCategory(id: number): Promise<boolean> {
+    return this.categories.delete(id);
   }
   
   // Settings methods

@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Question, insertQuestionSchema } from "@shared/schema";
+import { Settings, Question, insertQuestionSchema, Category, insertCategorySchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-type AdminTab = "questions" | "settings";
+type AdminTab = "questions" | "settings" | "categories";
 
 // Extended question schema with zod validation
 const questionFormSchema = insertQuestionSchema.extend({
@@ -24,9 +24,17 @@ const questionFormSchema = insertQuestionSchema.extend({
   // Ensure correct answer is valid
   correctAnswer: z.number().min(0).max(3),
   points: z.number().min(1, "Points must be at least 1").default(50),
-  category: z.number().min(1).max(5).default(1), // Category validation
+  categories: z.array(z.number()).min(1, "At least one category is required").default([1]), // Multiple categories
 });
 
+// Category form schema
+const categoryFormSchema = z.object({
+  id: z.number().optional(),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().min(1, "Description is required"),
+});
+
+type CategoryFormValues = z.infer<typeof categoryFormSchema>;
 type QuestionFormValues = z.infer<typeof questionFormSchema>;
 
 // Category definitions for reuse
@@ -50,7 +58,9 @@ type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<AdminTab>("questions");
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [previewQuestionImage, setPreviewQuestionImage] = useState<string | null>(null);
   const [previewOptionImages, setPreviewOptionImages] = useState<(string | null)[]>([null, null, null, null]);
@@ -67,6 +77,16 @@ export default function AdminPanel() {
     queryKey: ["/api/settings"],
   });
   
+  // Fetch categories from API
+  const { data: categoriesData = categories, isLoading: categoriesLoading } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    onError: () => {
+      console.error("Failed to fetch categories, falling back to default categories");
+      return categories;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+  
   // Initialize question form
   const questionForm = useForm<QuestionFormValues>({
     resolver: zodResolver(questionFormSchema),
@@ -77,7 +97,7 @@ export default function AdminPanel() {
       optionImages: ["", "", "", ""],
       correctAnswer: 0,
       points: 50,
-      category: 1 // Default to Category 1
+      categories: [1] // Default to Category 1
     }
   });
   
@@ -87,6 +107,15 @@ export default function AdminPanel() {
     defaultValues: {
       quizDurationMinutes: settings ? Math.round(settings.quizDurationSeconds / 60) : 5,
       lives: settings?.lives || 5,
+    }
+  });
+  
+  // Initialize category form
+  const categoryForm = useForm<CategoryFormValues>({
+    resolver: zodResolver(categoryFormSchema),
+    defaultValues: {
+      name: "",
+      description: ""
     }
   });
   
@@ -111,7 +140,7 @@ export default function AdminPanel() {
         optionImages: editingQuestion.optionImages || ["", "", "", ""],
         correctAnswer: editingQuestion.correctAnswer,
         points: editingQuestion.points || 50,
-        category: editingQuestion.category || 1
+        categories: editingQuestion.categories || [1]
       });
       
       // Set preview images
@@ -123,6 +152,18 @@ export default function AdminPanel() {
       );
     }
   }, [editingQuestion, questionForm]);
+  
+  // Set form values when editing a category
+  useEffect(() => {
+    if (editingCategory) {
+      categoryForm.reset({
+        id: editingCategory.id,
+        name: editingCategory.name,
+        description: editingCategory.description
+      });
+      setShowCategoryForm(true);
+    }
+  }, [editingCategory, categoryForm]);
   
   // When editing a question, make sure the form is visible
   useEffect(() => {
@@ -150,7 +191,7 @@ export default function AdminPanel() {
       });
       
       // Reset the form but keep the same category
-      const keepCategory = questionForm.getValues().category;
+      const keepCategories = questionForm.getValues().categories;
       questionForm.reset({
         question: "",
         questionImage: "",
@@ -158,7 +199,7 @@ export default function AdminPanel() {
         optionImages: ["", "", "", ""],
         correctAnswer: 0,
         points: 50,
-        category: keepCategory
+        categories: keepCategories
       });
       
       // Reset preview images
@@ -196,7 +237,7 @@ export default function AdminPanel() {
       setEditingQuestion(null);
       
       // Reset the form but keep the same category
-      const keepCategory = questionForm.getValues().category;
+      const keepCategories = questionForm.getValues().categories;
       questionForm.reset({
         question: "",
         questionImage: "",
@@ -204,7 +245,7 @@ export default function AdminPanel() {
         optionImages: ["", "", "", ""],
         correctAnswer: 0,
         points: 50,
-        category: keepCategory
+        categories: keepCategories
       });
       
       // Reset preview images
@@ -238,6 +279,86 @@ export default function AdminPanel() {
       toast({
         title: "Error",
         description: `Failed to delete question: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Create category mutation
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: CategoryFormValues) => {
+      const res = await apiRequest("POST", "/api/categories", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Category created successfully!",
+      });
+      
+      categoryForm.reset({
+        name: "",
+        description: ""
+      });
+      
+      setShowCategoryForm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to create category: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Update category mutation
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: CategoryFormValues }) => {
+      const res = await apiRequest("PUT", `/api/categories/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Category updated successfully!",
+      });
+      setEditingCategory(null);
+      
+      categoryForm.reset({
+        name: "",
+        description: ""
+      });
+      
+      setShowCategoryForm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update category: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Delete category mutation
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/categories/${id}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Category deleted successfully!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete category: ${error.message}`,
         variant: "destructive",
       });
     }
@@ -292,12 +413,21 @@ export default function AdminPanel() {
     updateSettingsMutation.mutate(data);
   };
   
+  // Handle category form submission
+  const onSubmitCategory = (data: CategoryFormValues) => {
+    if (editingCategory) {
+      updateCategoryMutation.mutate({ id: editingCategory.id, data });
+    } else {
+      createCategoryMutation.mutate(data);
+    }
+  };
+  
   // Cancel editing and reset form
   const handleCancelEdit = () => {
     setEditingQuestion(null);
     
     // Reset the form but keep the category
-    const keepCategory = questionForm.getValues().category;
+    const keepCategories = questionForm.getValues().categories;
     questionForm.reset({
       question: "",
       questionImage: "",
@@ -305,7 +435,7 @@ export default function AdminPanel() {
       optionImages: ["", "", "", ""],
       correctAnswer: 0,
       points: 50,
-      category: keepCategory
+      categories: keepCategories
     });
     
     // Reset preview images
@@ -313,10 +443,27 @@ export default function AdminPanel() {
     setPreviewOptionImages([null, null, null, null]);
   };
 
+  // Cancel editing category and reset form
+  const handleCancelCategoryEdit = () => {
+    setEditingCategory(null);
+    categoryForm.reset({
+      name: "",
+      description: ""
+    });
+    setShowCategoryForm(false);
+  };
+
   // Handle delete confirmation
   const handleDeleteQuestion = (id: number) => {
     if (confirm("Are you sure you want to delete this question?")) {
       deleteQuestionMutation.mutate(id);
+    }
+  };
+  
+  // Handle delete category confirmation
+  const handleDeleteCategory = (id: number) => {
+    if (confirm("Are you sure you want to delete this category? This will affect all questions using this category!")) {
+      deleteCategoryMutation.mutate(id);
     }
   };
   
@@ -327,12 +474,12 @@ export default function AdminPanel() {
   
   // Filter the questions list based on selected category
   const filteredQuestions = selectedCategory 
-    ? questions.filter(q => q.category === selectedCategory) 
+    ? questions.filter(q => q.categories && q.categories.includes(selectedCategory)) 
     : questions;
   
-  // Get category name from ID
+  // Get category name from ID using dynamic category data
   const getCategoryName = (categoryId: number): string => {
-    const category = categories.find(c => c.id === categoryId);
+    const category = (categoriesData as Category[]).find(c => c.id === categoryId);
     return category ? `${category.name} (${category.description})` : "Unknown";
   };
 
@@ -396,6 +543,16 @@ export default function AdminPanel() {
             </button>
             <button 
               className={`px-6 py-3 font-pixel text-base ${
+                activeTab === "categories" 
+                  ? "bg-pixel-yellow text-black"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+              onClick={() => setActiveTab("categories")}
+            >
+              CATEGORIES
+            </button>
+            <button 
+              className={`px-6 py-3 font-pixel text-base ${
                 activeTab === "settings" 
                   ? "bg-pixel-yellow text-black"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -424,7 +581,7 @@ export default function AdminPanel() {
                           optionImages: ["", "", "", ""],
                           correctAnswer: 0,
                           points: 50,
-                          category: questionForm.getValues().category
+                          categories: questionForm.getValues().categories
                         });
                         setPreviewQuestionImage(null);
                         setPreviewOptionImages([null, null, null, null]);
@@ -450,7 +607,7 @@ export default function AdminPanel() {
                     >
                       All Categories
                     </button>
-                    {categories.map((category) => (
+                    {(categoriesData as Category[]).map((category) => (
                       <button
                         key={category.id}
                         onClick={() => handleFilterByCategory(category.id)}
@@ -475,22 +632,42 @@ export default function AdminPanel() {
                     
                     <form onSubmit={questionForm.handleSubmit(onSubmitQuestion)}>
                       <div className="mb-4">
-                        <label className="block font-pixel text-base mb-2">Category:</label>
+                        <label className="block font-pixel text-base mb-2">Categories:</label>
+                        <div className="flex justify-between items-center mb-3">
+                          <p className="text-sm font-pixel-text text-gray-600">Select one or multiple categories for this question</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allCategoryIds = (categoriesData as Category[]).map(cat => cat.id);
+                              questionForm.setValue("categories", allCategoryIds);
+                            }}
+                            className="bg-pixel-yellow text-black font-pixel px-3 py-1 border-2 border-black hover:bg-yellow-400 text-sm"
+                          >
+                            SELECT ALL CATEGORIES
+                          </button>
+                        </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
-                          {categories.map((category) => (
+                          {(categoriesData as Category[]).map((category) => (
                             <label 
                               key={category.id} 
                               className={`cursor-pointer p-3 border-4 ${
-                                questionForm.watch("category") === category.id 
+                                questionForm.watch("categories").includes(category.id) 
                                   ? "border-pixel-blue bg-gray-100" 
                                   : "border-black hover:bg-gray-50"
                               }`}
                             >
                               <input
-                                type="radio"
+                                type="checkbox"
                                 value={category.id}
-                                checked={questionForm.watch("category") === category.id}
-                                onChange={() => handleCategoryChange(category.id)}
+                                checked={questionForm.watch("categories").includes(category.id)}
+                                onChange={() => {
+                                  const currentCategories = questionForm.getValues("categories");
+                                  if (currentCategories.includes(category.id)) {
+                                    questionForm.setValue("categories", currentCategories.filter(id => id !== category.id));
+                                  } else {
+                                    questionForm.setValue("categories", [...currentCategories, category.id]);
+                                  }
+                                }}
                                 className="sr-only"
                               />
                               <div className="font-pixel text-sm">{category.name}</div>
@@ -498,9 +675,9 @@ export default function AdminPanel() {
                             </label>
                           ))}
                         </div>
-                        {questionForm.formState.errors.category && (
+                        {questionForm.formState.errors.categories && (
                           <p className="text-pixel-red text-xs mt-1 font-pixel">
-                            {questionForm.formState.errors.category.message}
+                            {questionForm.formState.errors.categories.message}
                           </p>
                         )}
                       </div>
@@ -703,7 +880,23 @@ export default function AdminPanel() {
                                 {question.optionImages && question.optionImages.some(img => !!img) && " + 🖼️"}
                               </td>
                               <td className="border-r-4 border-black px-4 py-2 font-pixel-text text-center">
-                                {question.category ? getCategoryName(question.category) : "Category 1"}
+                                {question.categories && question.categories.length > 0 ? (
+                                  <div>
+                                    <div className="text-xs font-medium">
+                                      {question.categories.length > 1 
+                                        ? `${question.categories.length} categories` 
+                                        : "1 category"}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {question.categories.map(id => {
+                                        const category = (categoriesData as Category[]).find(c => c.id === id);
+                                        return category ? category.name : "Unknown";
+                                      }).join(", ")}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  "No categories"
+                                )}
                               </td>
                               <td className="border-r-4 border-black px-4 py-2 font-pixel-text text-center">{question.points || 50}</td>
                               <td className="px-2 py-2 text-center">
@@ -727,6 +920,152 @@ export default function AdminPanel() {
                       </table>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+            
+            {/* Categories Tab */}
+            {activeTab === "categories" && (
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="font-pixel text-lg">Category Management</h2>
+                  <button 
+                    onClick={() => {
+                      setEditingCategory(null);
+                      setShowCategoryForm(!showCategoryForm);
+                      if (editingCategory) {
+                        categoryForm.reset({
+                          name: "",
+                          description: ""
+                        });
+                      }
+                    }}
+                    className="bg-blue-500 text-white font-pixel px-4 py-2 border-2 border-black hover:bg-blue-600"
+                  >
+                    {showCategoryForm && !editingCategory ? "HIDE FORM" : "ADD CATEGORY"}
+                  </button>
+                </div>
+
+                {/* Collapsible Add/Edit Category Form */}
+                {showCategoryForm && (
+                  <div className="mb-6 border-4 border-black bg-gray-50 p-4">
+                    <h3 className="font-pixel text-lg mb-4 text-center border-b-2 border-black pb-2">
+                      {editingCategory ? "Edit Category" : "Add New Category"}
+                    </h3>
+                    
+                    <form onSubmit={categoryForm.handleSubmit(onSubmitCategory)}>
+                      <div className="mb-4">
+                        <label className="block font-pixel text-base mb-2">Category Name:</label>
+                        <input 
+                          {...categoryForm.register("name")}
+                          className="w-full px-4 py-3 border-4 border-black font-pixel-text text-lg" 
+                          placeholder="Enter category name (e.g. Category 1)"
+                        />
+                        {categoryForm.formState.errors.name && (
+                          <p className="text-pixel-red text-xs mt-1 font-pixel">
+                            {categoryForm.formState.errors.name.message}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="mb-4">
+                        <label className="block font-pixel text-base mb-2">Description:</label>
+                        <input 
+                          {...categoryForm.register("description")}
+                          className="w-full px-4 py-3 border-4 border-black font-pixel-text text-lg" 
+                          placeholder="Enter description (e.g. Grades 3-4)"
+                        />
+                        {categoryForm.formState.errors.description && (
+                          <p className="text-pixel-red text-xs mt-1 font-pixel">
+                            {categoryForm.formState.errors.description.message}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="flex justify-end space-x-2">
+                        {editingCategory && (
+                          <button 
+                            type="button" 
+                            onClick={handleCancelCategoryEdit}
+                            className="bg-gray-500 text-white font-pixel px-4 py-2 border-2 border-black hover:bg-gray-600 text-base"
+                          >
+                            CANCEL
+                          </button>
+                        )}
+                        <button 
+                          type="submit" 
+                          className="bg-green-500 text-white font-pixel px-5 py-3 border-2 border-black hover:bg-green-600 text-base"
+                          disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}
+                        >
+                          {editingCategory ? "UPDATE" : "SAVE"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* Categories List */}
+                <div className="border-4 border-black">
+                  {categoriesLoading ? (
+                    <div className="flex justify-center items-center h-60">
+                      <p className="font-pixel-text text-lg">Loading categories...</p>
+                    </div>
+                  ) : ((categoriesData as Category[]).length === 0) ? (
+                    <div className="flex flex-col justify-center items-center h-60">
+                      <p className="font-pixel-text text-lg mb-4">No categories yet!</p>
+                      <button 
+                        onClick={() => setShowCategoryForm(true)}
+                        className="bg-blue-500 text-white font-pixel px-4 py-2 border-2 border-black hover:bg-blue-600"
+                      >
+                        ADD YOUR FIRST CATEGORY
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="max-h-[400px] overflow-y-auto">
+                      <table className="w-full border-collapse">
+                        <thead className="sticky top-0 bg-gray-100">
+                          <tr>
+                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-left font-pixel text-sm w-[10%]">ID</th>
+                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-left font-pixel text-sm w-[35%]">Name</th>
+                            <th className="border-b-4 border-r-4 border-black px-4 py-2 text-left font-pixel text-sm w-[35%]">Description</th>
+                            <th className="border-b-4 border-black px-4 py-2 text-center font-pixel text-sm w-[20%]">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(categoriesData as Category[]).map((category: Category, index: number) => (
+                            <tr key={category.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} border-b border-black`}>
+                              <td className="border-r-4 border-black px-4 py-2 font-pixel-text">{category.id}</td>
+                              <td className="border-r-4 border-black px-4 py-2 font-pixel-text">{category.name}</td>
+                              <td className="border-r-4 border-black px-4 py-2 font-pixel-text">{category.description}</td>
+                              <td className="px-2 py-2 text-center">
+                                <button 
+                                  className="bg-blue-500 text-white px-2 py-1 border-2 border-black mr-1 font-pixel text-xs hover:bg-blue-600"
+                                  onClick={() => setEditingCategory(category)}
+                                >
+                                  EDIT
+                                </button>
+                                <button 
+                                  className="bg-pixel-red text-white px-2 py-1 border-2 border-black font-pixel text-xs hover:bg-red-600"
+                                  onClick={() => handleDeleteCategory(category.id)}
+                                  disabled={deleteCategoryMutation.isPending}
+                                >
+                                  DEL
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 p-4 bg-gray-100 border-2 border-black">
+                  <h3 className="font-pixel text-base mb-2">Note:</h3>
+                  <p className="font-pixel-text text-sm">
+                    Changing category names will affect all questions assigned to those categories.
+                    Make sure to use descriptive names that clearly indicate the category's target audience or grade level.
+                  </p>
                 </div>
               </div>
             )}

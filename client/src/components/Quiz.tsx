@@ -42,8 +42,8 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
   // Filter questions by category and shuffle them on mount
   useEffect(() => {
     if (questions && questions.length > 0) {
-      // Filter questions by the selected category
-      const categoryQuestions = questions.filter(q => q.category === category);
+      // Filter questions by the selected category (check in categories array)
+      const categoryQuestions = questions.filter(q => q.categories && q.categories.includes(category));
       
       if (categoryQuestions.length > 0) {
         shuffledQuestionsRef.current = [...categoryQuestions].sort(() => Math.random() - 0.5);
@@ -137,60 +137,55 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
     setSelectedAnswer(null);
     setIsAnswerCorrect(null);
     
-    // Count the total number of answered questions
+    // Check if all questions have been answered first
     const totalAnsweredQuestions = Object.values(answeredQuestionsMap).filter(Boolean).length;
+    const allQuestionsAnswered = totalAnsweredQuestions >= shuffledQuestionsRef.current.length;
     
-    // Special handling for single-question quizzes - immediately end quiz
+    // If all questions have been answered or we're out of lives, end the quiz immediately
+    if (allQuestionsAnswered || (settings.livesEnabled && lives <= 0)) {
+      console.log("All questions answered or no lives left - ending quiz");
+      setQuizEnded(true);
+      return;
+    }
+    
+    // Special handling for single-question quizzes
     if (shuffledQuestionsRef.current.length === 1) {
       console.log("Single question quiz completed - ending quiz");
       setQuizEnded(true);
       return;
     }
     
-    const allQuestionsAnswered = totalAnsweredQuestions === shuffledQuestionsRef.current.length;
+    // Find the next unanswered question
+    let nextIndex = -1;
+    let searchIndex = currentQuestionIndex + 1;
     
-    // If all questions have been answered, end the quiz
-    if (allQuestionsAnswered || (settings.livesEnabled && lives <= 0)) {
-      setQuizEnded(true);
-      return;
+    // First try to find an unanswered question after the current one
+    while (searchIndex < shuffledQuestionsRef.current.length) {
+      if (!answeredQuestionsMap[searchIndex]) {
+        nextIndex = searchIndex;
+        break;
+      }
+      searchIndex++;
     }
     
-    // Find the next unanswered question
-    let nextIndex = currentQuestionIndex + 1;
+    // If we didn't find any unanswered questions after the current one, 
+    // loop back to the beginning to search
+    if (nextIndex === -1) {
+      searchIndex = 0;
+      while (searchIndex < currentQuestionIndex) {
+        if (!answeredQuestionsMap[searchIndex]) {
+          nextIndex = searchIndex;
+          break;
+        }
+        searchIndex++;
+      }
+    }
     
-    // If we're at the last question, loop back to find any unanswered questions
-    if (nextIndex >= shuffledQuestionsRef.current.length) {
-      // Find the first unanswered question from the beginning
-      nextIndex = 0;
-      while (nextIndex < shuffledQuestionsRef.current.length && answeredQuestionsMap[nextIndex]) {
-        nextIndex++;
-      }
-      
-      // If we couldn't find any unanswered questions, which shouldn't happen at this point, end the quiz
-      if (nextIndex >= shuffledQuestionsRef.current.length) {
-        setQuizEnded(true);
-        return;
-      }
-    } else {
-      // If the next question is already answered, find the next unanswered one
-      while (nextIndex < shuffledQuestionsRef.current.length && answeredQuestionsMap[nextIndex]) {
-        nextIndex++;
-      }
-      
-      // If we couldn't find an unanswered question after the current one, 
-      // loop back to the beginning to search for any remaining unanswered questions
-      if (nextIndex >= shuffledQuestionsRef.current.length) {
-        nextIndex = 0;
-        while (nextIndex < currentQuestionIndex && answeredQuestionsMap[nextIndex]) {
-          nextIndex++;
-        }
-        
-        // If we still couldn't find any unanswered questions, end the quiz
-        if (nextIndex >= currentQuestionIndex) {
-          setQuizEnded(true);
-          return;
-        }
-      }
+    // If we still didn't find any unanswered questions, end the quiz
+    if (nextIndex === -1) {
+      console.log("No more unanswered questions found - ending quiz");
+      setQuizEnded(true);
+      return;
     }
     
     // Set the new question index and mark it as visited
@@ -333,7 +328,7 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
                 {hasQuestionImage && (
                   <div className="mt-4 bg-gray-50 p-3 border-2 border-black rounded-md flex justify-center">
                     <img 
-                      src={currentQuestion.questionImage} 
+                      src={currentQuestion.questionImage || ""} 
                       alt="Question Visual" 
                       className="max-h-64 object-contain"
                       onError={() => handleImageError(currentQuestion.questionImage || "")}
