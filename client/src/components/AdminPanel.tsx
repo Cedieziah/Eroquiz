@@ -26,7 +26,7 @@ type QuestionFormValues = z.infer<typeof questionFormSchema>;
 
 // Updated schema with only relevant fields
 const settingsFormSchema = z.object({
-  quizDurationMinutes: z.number().min(1, "Minimum 1 minute").max(30, "Maximum 30 minutes"),
+  quizDurationMinutes: z.number().min(1, "Minimum 1 minute").max(60, "Maximum 60 minutes"),
   lives: z.number().min(1, "Minimum 1 life").max(10, "Maximum 10 lives"),
   livesEnabled: z.boolean().default(true), // Add livesEnabled to the schema
 });
@@ -483,7 +483,7 @@ export default function AdminPanel() {
                             type="number"
                             {...settingsForm.register("quizDurationMinutes", { valueAsNumber: true })}
                             min="1" 
-                            max="30"
+                            max="60"
                             className="w-20 px-3 py-2 border-y-2 border-black font-pixel-text text-center mx-1"
                           />
                           <button 
@@ -491,7 +491,7 @@ export default function AdminPanel() {
                             className="w-10 h-10 bg-gray-200 border-2 border-black font-pixel text-lg"
                             onClick={() => {
                               const current = settingsForm.getValues('quizDurationMinutes');
-                              if (current < 30) {
+                              if (current < 60) {
                                 settingsForm.setValue('quizDurationMinutes', current + 1);
                               }
                             }}
