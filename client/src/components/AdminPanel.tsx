@@ -135,11 +135,27 @@ export default function AdminPanel() {
   // Set form values when editing a question
   useEffect(() => {
     if (editingQuestion) {
+      // Log the question being edited to debug
+      console.log('Editing question:', editingQuestion);
+      
+      // Ensure optionImages is always an array of 4 items (strings or null)
+      const safeOptionImages = editingQuestion.optionImages 
+        ? [...editingQuestion.optionImages]
+        : ["", "", "", ""];
+      
+      // Make sure we have exactly 4 entries in the array
+      while (safeOptionImages.length < 4) {
+        safeOptionImages.push("");
+      }
+      
+      // Log the prepared optionImages
+      console.log('Prepared optionImages for form:', safeOptionImages);
+      
       questionForm.reset({
         question: editingQuestion.question,
         questionImage: editingQuestion.questionImage || "",
         options: [...editingQuestion.options],
-        optionImages: editingQuestion.optionImages || ["", "", "", ""],
+        optionImages: safeOptionImages,
         correctAnswer: editingQuestion.correctAnswer,
         points: editingQuestion.points || 50,
         categories: editingQuestion.categories || [1]
@@ -148,9 +164,7 @@ export default function AdminPanel() {
       // Set preview images
       setPreviewQuestionImage(editingQuestion.questionImage || null);
       setPreviewOptionImages(
-        editingQuestion.optionImages 
-          ? [...editingQuestion.optionImages.map(img => img || null)]
-          : [null, null, null, null]
+        safeOptionImages.map(img => img || null)
       );
     }
   }, [editingQuestion, questionForm]);
@@ -177,12 +191,19 @@ export default function AdminPanel() {
   // Create question mutation
   const createQuestionMutation = useMutation({
     mutationFn: async (data: QuestionFormValues) => {
-      // Clean up empty image URLs
+      // Ensure optionImages is always an array of strings (or null values)
+      // This is critical for the server to process them correctly
       const cleanedData = {
         ...data,
         questionImage: data.questionImage || null,
-        optionImages: data.optionImages?.map(img => img || null) || null
+        optionImages: data.optionImages 
+          ? data.optionImages.map(img => img === "" || img === undefined ? null : img) 
+          : [null, null, null, null]
       };
+      
+      // Log the data being sent to the server for debugging
+      console.log('Creating question with data:', JSON.stringify(cleanedData, null, 2));
+      
       const res = await apiRequest("POST", "/api/questions", cleanedData);
       return res.json();
     },
@@ -225,14 +246,20 @@ export default function AdminPanel() {
   // Update question mutation
   const updateQuestionMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: QuestionFormValues }) => {
-      // Clean up empty image URLs
+      // Always ensure optionImages is an array of 4 items, even if some/all are null
+      // This is critical to ensure the backend gets consistent data structure
+      // Convert empty strings to null values to be consistent with backend storage
       const cleanedData = {
         ...data,
         questionImage: data.questionImage || null,
-        // Fix: Ensure optionImages is properly handled and empty strings are converted to null
-        optionImages: data.optionImages?.map(img => img === "" ? null : img) || [null, null, null, null]
+        optionImages: Array.isArray(data.optionImages) 
+          ? data.optionImages.map(img => img === "" || img === undefined ? null : img) 
+          : [null, null, null, null]
       };
-      console.log('Sending update with cleaned data:', cleanedData);
+      
+      // Log the data being sent to the server for debugging
+      console.log('Sending update with cleaned data:', JSON.stringify(cleanedData, null, 2));
+      
       const res = await apiRequest("PUT", `/api/questions/${id}`, cleanedData);
       return res.json();
     },
@@ -503,10 +530,38 @@ export default function AdminPanel() {
   // Handle option image URL change
   const handleOptionImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
-    const currentOptionImages = questionForm.getValues().optionImages || ["", "", "", ""];
+    
+    // Always get the current optionImages array directly from form state first
+    // This is critical for maintaining consistency
+    let currentOptionImages = questionForm.getValues().optionImages;
+    
+    // Ensure we always have a properly initialized array with 4 elements
+    if (!Array.isArray(currentOptionImages) || currentOptionImages.length !== 4) {
+      currentOptionImages = ["", "", "", ""];
+    }
+    
+    // Create a new array with the updated value
     const newOptionImages = [...currentOptionImages];
-    newOptionImages[index] = url;
-    questionForm.setValue("optionImages", newOptionImages);
+    newOptionImages[index] = url || ""; // Empty string if null/undefined
+    
+    // Set the entire optionImages array in the form with proper validation flags
+    questionForm.setValue("optionImages", newOptionImages, { 
+      shouldValidate: true, 
+      shouldDirty: true, 
+      shouldTouch: true 
+    });
+    
+    // Force a form update by explicitly setting each item to ensure React detects the change
+    // This is needed to ensure form properly tracks changes and submits correctly
+    for (let i = 0; i < 4; i++) {
+      questionForm.setValue(`optionImages.${i}` as const, newOptionImages[i], { 
+        shouldDirty: true 
+      });
+    }
+    
+    // Log for debugging
+    console.log(`Updated option image ${index} to: ${url}`);
+    console.log('Current optionImages array:', newOptionImages);
     
     // Update preview
     const newPreviewOptionImages = [...previewOptionImages];
@@ -541,17 +596,48 @@ export default function AdminPanel() {
     if (!currentImageField) return;
     
     if (currentImageField === 'question') {
-      questionForm.setValue("questionImage", imageUrl);
+      // For question image, update directly
+      questionForm.setValue("questionImage", imageUrl, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true
+      });
       setPreviewQuestionImage(imageUrl);
     } else {
-      // Extract option index from the field name (e.g., 'option0' -> 0)
+      // For option images, ensure proper array handling
       const optionIndex = parseInt(currentImageField.replace('option', ''), 10);
-      const currentOptionImages = questionForm.getValues().optionImages || ["", "", "", ""];
+      
+      // Always get fresh optionImages array first
+      let currentOptionImages = questionForm.getValues().optionImages;
+      
+      // Ensure we have a properly initialized array
+      if (!Array.isArray(currentOptionImages) || currentOptionImages.length !== 4) {
+        currentOptionImages = ["", "", "", ""];
+      }
+      
+      // Create new array with the selected image
       const newOptionImages = [...currentOptionImages];
       newOptionImages[optionIndex] = imageUrl;
-      questionForm.setValue("optionImages", newOptionImages);
       
-      // Update preview
+      // Set the entire optionImages array with validation triggers
+      questionForm.setValue("optionImages", newOptionImages, { 
+        shouldValidate: true, 
+        shouldDirty: true, 
+        shouldTouch: true 
+      });
+      
+      // Force update each individual index to ensure form properly tracks changes
+      for (let i = 0; i < 4; i++) {
+        questionForm.setValue(`optionImages.${i}` as const, newOptionImages[i], { 
+          shouldDirty: true 
+        });
+      }
+      
+      // Log for debugging
+      console.log(`Selected image for option ${optionIndex}: ${imageUrl}`);
+      console.log('Updated optionImages array:', newOptionImages);
+      
+      // Update preview state
       const newPreviewOptionImages = [...previewOptionImages];
       newPreviewOptionImages[optionIndex] = imageUrl;
       setPreviewOptionImages(newPreviewOptionImages);
@@ -816,10 +902,12 @@ export default function AdminPanel() {
                                 <div className="flex items-center">
                                   <input 
                                     type="text"
-                                    value={questionForm.watch(`optionImages.${index}`) || ""}
-                                    onChange={(e) => handleOptionImageChange(index, e)}
+                                    // Use proper registration of the field instead of manual value binding
+                                    {...questionForm.register(`optionImages.${index}`)}
                                     className="w-full px-4 py-2 border-4 border-black font-pixel-text text-base" 
                                     placeholder="Enter image URL (optional)"
+                                    // Keep the onChange handler to handle images properly
+                                    onChange={(e) => handleOptionImageChange(index, e)}
                                   />
                                   <button
                                     type="button"
