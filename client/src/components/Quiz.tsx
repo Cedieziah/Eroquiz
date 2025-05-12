@@ -235,7 +235,7 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
   };
 
   // Check if an image is valid and not in error state
-  const isValidImage = (url: string | null) => {
+  const isValidImage = (url: string | null | undefined) => {
     if (!url) return false;
     if (imageErrors[url]) return false;
     return true;

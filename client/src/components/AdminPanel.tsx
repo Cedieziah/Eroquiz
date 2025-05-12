@@ -86,10 +86,6 @@ export default function AdminPanel() {
   // Fetch categories from API
   const { data: categoriesData = categories, isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
-    onError: () => {
-      console.error("Failed to fetch categories, falling back to default categories");
-      return categories;
-    },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
   
