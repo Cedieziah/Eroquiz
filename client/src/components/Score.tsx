@@ -8,6 +8,7 @@ interface ScoreProps {
   correctAnswers: number;
   onPlayAgain: () => void;
   onBackToMain: () => void;
+  category: number;
 }
 
 export default function Score({
@@ -16,13 +17,26 @@ export default function Score({
   questionsAnswered,
   correctAnswers,
   onPlayAgain,
-  onBackToMain
+  onBackToMain,
+  category
 }: ScoreProps) {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   if (showLeaderboard) {
-    return <Leaderboard onClose={() => setShowLeaderboard(false)} />;
+    return <Leaderboard onClose={() => setShowLeaderboard(false)} category={category} />;
   }
+
+  // Get category name based on the category ID
+  const getCategoryName = (categoryId: number): string => {
+    switch (categoryId) {
+      case 1: return "Grades 3-4";
+      case 2: return "Grades 5-6";
+      case 3: return "Grades 7-8";
+      case 4: return "Grades 9-10";
+      case 5: return "Grades 11-12";
+      default: return "Unknown";
+    }
+  };
 
   return (
     <div className="pixel-container animate-fade-in">
@@ -42,6 +56,11 @@ export default function Score({
           <div className="score-row">
             <span className="font-pixel text-pixel-blue text-lg">PLAYER:</span>
             <span className="font-pixel-text text-xl">{playerName}</span>
+          </div>
+          
+          <div className="score-row">
+            <span className="font-pixel text-pixel-blue text-lg">CATEGORY:</span>
+            <span className="font-pixel-text text-xl">{getCategoryName(category)}</span>
           </div>
           
           <div className="score-row">

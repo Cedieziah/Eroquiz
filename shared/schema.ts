@@ -21,16 +21,22 @@ export type User = typeof users.$inferSelect;
 export const questions = pgTable("questions", {
   id: serial("id").primaryKey(),
   question: text("question").notNull(),
+  questionImage: text("question_image"), // Optional image URL for the question
   options: json("options").$type<string[]>().notNull(),
+  optionImages: json("option_images").$type<string[]>(), // Optional image URLs for answers
   correctAnswer: integer("correct_answer").notNull(),
   points: integer("points").notNull().default(50), // Default to 50 points
+  category: integer("category").notNull().default(1), // Default to Category 1 (Grades 3-4)
 });
 
 export const insertQuestionSchema = createInsertSchema(questions).pick({
   question: true,
+  questionImage: true,
   options: true,
+  optionImages: true,
   correctAnswer: true,
   points: true,
+  category: true,
 });
 
 // Remove duplicate type definitions - use only the z.infer types

@@ -5,13 +5,15 @@ import { Question, Settings } from "@shared/schema";
 interface QuizProps {
   questions: Question[];
   settings: Settings;
-  onQuizEnd: (score: number, answered: number, correct: number) => void;
+  onQuizEnd: (score: number, answered: number, correct: number, timeSpent?: number) => void;
+  category: number; // Add category prop
 }
 
-export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
+export default function Quiz({ questions, settings, onQuizEnd, category }: QuizProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [lives, setLives] = useState(settings.lives);
   const [score, setScore] = useState(0);
+  const [startTime, setStartTime] = useState<number>(Date.now());
   
   // Replace per-question timer with quiz timer
   const [quizTimeLeft, setQuizTimeLeft] = useState(settings.quizDurationSeconds);
@@ -31,31 +33,45 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
   const [visitedQuestionsMap, setVisitedQuestionsMap] = useState<Record<number, boolean>>({});
   const [showNavigationTooltip, setShowNavigationTooltip] = useState(false);
 
+  // For handling image errors
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
   const timerRef = useRef<number | null>(null);
   const shuffledQuestionsRef = useRef<Question[]>([]);
 
-  // Shuffle and prepare questions immediately on mount
+  // Filter questions by category and shuffle them on mount
   useEffect(() => {
     if (questions && questions.length > 0) {
-      shuffledQuestionsRef.current = [...questions].sort(() => Math.random() - 0.5);
-      console.log(`Loaded ${shuffledQuestionsRef.current.length} questions`);
+      // Filter questions by the selected category
+      const categoryQuestions = questions.filter(q => q.category === category);
+      
+      if (categoryQuestions.length > 0) {
+        shuffledQuestionsRef.current = [...categoryQuestions].sort(() => Math.random() - 0.5);
+        console.log(`Loaded ${shuffledQuestionsRef.current.length} questions for category ${category}`);
+      } else {
+        // Fallback to all questions if no questions found for this category
+        console.log(`No questions found for category ${category}, using all questions`);
+        shuffledQuestionsRef.current = [...questions].sort(() => Math.random() - 0.5);
+      }
       
       // Mark the first question as visited when quiz starts
       setVisitedQuestionsMap(prev => ({ ...prev, 0: true }));
       setIsLoading(false);
+      setStartTime(Date.now());
     } else {
       console.log("No questions available yet", questions);
     }
-  }, [questions]);
+  }, [questions, category]);
 
   // Handle quiz end
   useEffect(() => {
     if (quizEnded) {
-      console.log(`Quiz ended: Score ${score}, Answered ${answeredQuestions}, Correct ${correctAnswers}`);
+      const timeSpentSeconds = Math.round((Date.now() - startTime) / 1000);
+      console.log(`Quiz ended: Score ${score}, Answered ${answeredQuestions}, Correct ${correctAnswers}, Time spent: ${timeSpentSeconds}s`);
       console.log(`Total questions: ${shuffledQuestionsRef.current.length}`);
-      onQuizEnd(score, answeredQuestions, correctAnswers);
+      onQuizEnd(score, answeredQuestions, correctAnswers, timeSpentSeconds);
     }
-  }, [quizEnded, score, answeredQuestions, correctAnswers, onQuizEnd]);
+  }, [quizEnded, score, answeredQuestions, correctAnswers, onQuizEnd, startTime]);
 
   // Quiz timer functionality - counts down for the entire quiz
   useEffect(() => {
@@ -123,6 +139,14 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
     
     // Count the total number of answered questions
     const totalAnsweredQuestions = Object.values(answeredQuestionsMap).filter(Boolean).length;
+    
+    // Special handling for single-question quizzes - immediately end quiz
+    if (shuffledQuestionsRef.current.length === 1) {
+      console.log("Single question quiz completed - ending quiz");
+      setQuizEnded(true);
+      return;
+    }
+    
     const allQuestionsAnswered = totalAnsweredQuestions === shuffledQuestionsRef.current.length;
     
     // If all questions have been answered, end the quiz
@@ -202,6 +226,11 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
     setShowNavigationTooltip(prev => !prev);
   };
 
+  // Handle image load error
+  const handleImageError = (imageUrl: string) => {
+    setImageErrors(prev => ({ ...prev, [imageUrl]: true }));
+  };
+
   // Format time to display as MM:SS
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -216,7 +245,13 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
 
   // If we don't have any questions after loading
   if (!shuffledQuestionsRef.current.length) {
-    return <div className="p-8 text-center font-pixel">No questions available. Please add some questions in the admin panel.</div>;
+    return (
+      <div className="p-8 text-center font-pixel">
+        <h2 className="text-2xl mb-4">No Questions Available</h2>
+        <p className="mb-4">There are no questions available for this category.</p>
+        <p>Please add some questions in the admin panel or select a different category.</p>
+      </div>
+    );
   }
 
   // If the quiz has ended
@@ -232,6 +267,9 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
   }
 
   const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];
+  const hasQuestionImage = currentQuestion.questionImage && !imageErrors[currentQuestion.questionImage];
+  const hasOptionImages = currentQuestion.optionImages && 
+    currentQuestion.optionImages.some(img => img && !imageErrors[img]);
   
   return (
     <div className="relative">
@@ -288,30 +326,63 @@ export default function Quiz({ questions, settings, onQuizEnd }: QuizProps) {
 
             {/* Question Card */}
             <div className="bg-white p-6">
-              <div className="border-l-4 border-pixel-yellow pl-4 mb-8">
+              <div className="border-l-4 border-pixel-yellow pl-4 mb-6">
                 <h3 className="font-pixel text-lg">{currentQuestion.question}</h3>
+                
+                {/* Question Image */}
+                {hasQuestionImage && (
+                  <div className="mt-4 bg-gray-50 p-3 border-2 border-black rounded-md flex justify-center">
+                    <img 
+                      src={currentQuestion.questionImage} 
+                      alt="Question Visual" 
+                      className="max-h-64 object-contain"
+                      onError={() => handleImageError(currentQuestion.questionImage || "")}
+                    />
+                  </div>
+                )}
               </div>
               
               <div className="space-y-4">
-                {currentQuestion.options.map((option, index) => (
-                  <button 
-                    key={index}
-                    onClick={() => handleAnswerClick(index)}
-                    className={`w-full text-left px-4 py-5 font-pixel-text text-xl border-4 border-black flex items-center transition-all duration-200 ${
-                      selectedAnswer === index 
-                        ? isAnswerCorrect 
-                          ? 'bg-green-100 border-green-500 shake-correct' 
-                          : 'bg-red-100 border-red-500 shake-incorrect'
-                        : 'bg-white hover:bg-gray-100'
-                    }`}
-                    disabled={selectedAnswer !== null || !isTimerRunning}
-                  >
-                    <span className="inline-block w-10 h-10 bg-black text-white font-pixel flex items-center justify-center mr-4 text-lg">
-                      {String.fromCharCode(65 + index)}
-                    </span>
-                    <span>{option}</span>
-                  </button>
-                ))}
+                {currentQuestion.options.map((option, index) => {
+                  const optionImage = currentQuestion.optionImages?.[index];
+                  const hasOptionImage = optionImage && !imageErrors[optionImage];
+                  
+                  return (
+                    <button 
+                      key={index}
+                      onClick={() => handleAnswerClick(index)}
+                      className={`w-full text-left px-4 py-5 font-pixel-text text-xl border-4 border-black transition-all duration-200 ${
+                        selectedAnswer === index 
+                          ? isAnswerCorrect 
+                            ? 'bg-green-100 border-green-500 shake-correct' 
+                            : 'bg-red-100 border-red-500 shake-incorrect'
+                          : 'bg-white hover:bg-gray-100'
+                      }`}
+                      disabled={selectedAnswer !== null || !isTimerRunning}
+                    >
+                      <div className="flex items-center">
+                        <span className="inline-block w-10 h-10 bg-black text-white font-pixel flex items-center justify-center mr-4 text-lg">
+                          {String.fromCharCode(65 + index)}
+                        </span>
+                        <span>{option}</span>
+                      </div>
+                      
+                      {/* Option Image */}
+                      {hasOptionImage && (
+                        <div className="mt-2 ml-14 flex justify-start">
+                          <div className="border-2 border-gray-300 p-2 rounded bg-gray-50 inline-block">
+                            <img 
+                              src={optionImage} 
+                              alt={`Option ${String.fromCharCode(65 + index)}`}
+                              className="max-h-24 object-contain"
+                              onError={() => handleImageError(optionImage)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               
               {/* Feedback message */}
