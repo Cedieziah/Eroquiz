@@ -6,8 +6,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import ImageManager from "./ImageManager";
+import ImageSelectModal from "./ImageSelectModal";
 
-type AdminTab = "questions" | "settings" | "categories";
+type AdminTab = "questions" | "settings" | "categories" | "images";
 
 // Extended question schema with zod validation
 const questionFormSchema = insertQuestionSchema.extend({
@@ -67,6 +69,10 @@ export default function AdminPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Image selection modal states
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [currentImageField, setCurrentImageField] = useState<'question' | 'option0' | 'option1' | 'option2' | 'option3' | null>(null);
+
   // Fetch questions from API
   const { data: questions = [], isLoading: questionsLoading } = useQuery<Question[]>({
     queryKey: ["/api/questions"],
@@ -224,8 +230,10 @@ export default function AdminPanel() {
       const cleanedData = {
         ...data,
         questionImage: data.questionImage || null,
-        optionImages: data.optionImages?.map(img => img || null) || null
+        // Fix: Ensure optionImages is properly handled and empty strings are converted to null
+        optionImages: data.optionImages?.map(img => img === "" ? null : img) || [null, null, null, null]
       };
+      console.log('Sending update with cleaned data:', cleanedData);
       const res = await apiRequest("PUT", `/api/questions/${id}`, cleanedData);
       return res.json();
     },
@@ -514,8 +522,42 @@ export default function AdminPanel() {
   // Update the part where the category value is set when clicking the radio button
   const handleCategoryChange = (categoryId: number) => {
     console.log(`Setting category to: ${categoryId}`);
-    // Ensure it's a number
-    questionForm.setValue("category", Number(categoryId));
+    // No need to set a single "category" field - we're using an array of "categories" now
+    // The bug is here - trying to set "category" (singular) which doesn't exist in our schema
+    // This line should be removed or commented out:
+    // questionForm.setValue("category", Number(categoryId));
+  };
+
+  // Open image selector for a specific field
+  const openImageSelector = (field: 'question' | 'option0' | 'option1' | 'option2' | 'option3') => {
+    setCurrentImageField(field);
+    setImageModalOpen(true);
+  };
+
+  // Handle image selection from modal
+  const handleSelectImage = (imageUrl: string) => {
+    if (!currentImageField) return;
+    
+    if (currentImageField === 'question') {
+      questionForm.setValue("questionImage", imageUrl);
+      setPreviewQuestionImage(imageUrl);
+    } else {
+      // Extract option index from the field name (e.g., 'option0' -> 0)
+      const optionIndex = parseInt(currentImageField.replace('option', ''), 10);
+      const currentOptionImages = questionForm.getValues().optionImages || ["", "", "", ""];
+      const newOptionImages = [...currentOptionImages];
+      newOptionImages[optionIndex] = imageUrl;
+      questionForm.setValue("optionImages", newOptionImages);
+      
+      // Update preview
+      const newPreviewOptionImages = [...previewOptionImages];
+      newPreviewOptionImages[optionIndex] = imageUrl;
+      setPreviewOptionImages(newPreviewOptionImages);
+    }
+    
+    // Close the modal
+    setImageModalOpen(false);
+    setCurrentImageField(null);
   };
   
   return (
@@ -560,6 +602,16 @@ export default function AdminPanel() {
               onClick={() => setActiveTab("settings")}
             >
               SETTINGS
+            </button>
+            <button 
+              className={`px-6 py-3 font-pixel text-base ${
+                activeTab === "images" 
+                  ? "bg-pixel-yellow text-black"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+              onClick={() => setActiveTab("images")}
+            >
+              IMAGES
             </button>
           </div>
           
@@ -699,13 +751,22 @@ export default function AdminPanel() {
                       {/* Question Image URL */}
                       <div className="mb-4">
                         <label className="block font-pixel text-base mb-2">Question Image (Optional):</label>
-                        <input 
-                          type="text"
-                          {...questionForm.register("questionImage")}
-                          className="w-full px-4 py-3 border-4 border-black font-pixel-text text-lg" 
-                          placeholder="Enter image URL (optional)"
-                          onChange={handleQuestionImageChange}
-                        />
+                        <div className="flex items-center">
+                          <input 
+                            type="text"
+                            {...questionForm.register("questionImage")}
+                            className="w-full px-4 py-3 border-4 border-black font-pixel-text text-lg" 
+                            placeholder="Enter image URL (optional)"
+                            onChange={handleQuestionImageChange}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => openImageSelector('question')}
+                            className="ml-2 bg-pixel-yellow text-black font-pixel px-3 py-2 border-2 border-black hover:bg-yellow-400"
+                          >
+                            SELECT IMAGE
+                          </button>
+                        </div>
                         
                         {/* Image Preview */}
                         {previewQuestionImage && (
@@ -750,13 +811,22 @@ export default function AdminPanel() {
                               {/* Option Image URL */}
                               <div className="mt-2 ml-10">
                                 <label className="block font-pixel text-sm mb-1">Option Image (Optional):</label>
-                                <input 
-                                  type="text"
-                                  value={questionForm.watch(`optionImages.${index}`) || ""}
-                                  onChange={(e) => handleOptionImageChange(index, e)}
-                                  className="w-full px-4 py-2 border-4 border-black font-pixel-text text-base" 
-                                  placeholder="Enter image URL (optional)"
-                                />
+                                <div className="flex items-center">
+                                  <input 
+                                    type="text"
+                                    value={questionForm.watch(`optionImages.${index}`) || ""}
+                                    onChange={(e) => handleOptionImageChange(index, e)}
+                                    className="w-full px-4 py-2 border-4 border-black font-pixel-text text-base" 
+                                    placeholder="Enter image URL (optional)"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => openImageSelector(`option${index}` as 'option0' | 'option1' | 'option2' | 'option3')}
+                                    className="ml-2 bg-pixel-yellow text-black font-pixel px-3 py-2 border-2 border-black hover:bg-yellow-400"
+                                  >
+                                    SELECT IMAGE
+                                  </button>
+                                </div>
                                 
                                 {/* Option Image Preview */}
                                 {previewOptionImages[index] && (
@@ -1204,9 +1274,34 @@ export default function AdminPanel() {
                 )}
               </div>
             )}
+
+            {/* Images Tab */}
+            {activeTab === "images" && (
+              <div>
+                <h2 className="font-pixel text-lg mb-6">Image Management</h2>
+                <div className="border-4 border-black p-4">
+                  <p className="font-pixel-text mb-4">
+                    Upload, manage, and delete images for your quiz questions and answers. These images will be stored
+                    in your Supabase storage bucket and can be used in questions and answers.
+                  </p>
+                  <ImageManager />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Image Selection Modal */}
+      <ImageSelectModal 
+        isOpen={imageModalOpen}
+        onClose={() => {
+          setImageModalOpen(false);
+          setCurrentImageField(null);
+        }}
+        onSelectImage={handleSelectImage}
+        title={currentImageField === 'question' ? 'Select Question Image' : 'Select Option Image'}
+      />
     </div>
   );
 }

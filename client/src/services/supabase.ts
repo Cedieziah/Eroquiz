@@ -57,3 +57,99 @@ export async function getLeaderboard(limit = 20, category?: number) {
     return [];
   }
 }
+
+// Image management functions
+const BUCKET_NAME = 'quiz-images';
+
+export interface ImageInfo {
+  id: string;
+  name: string;
+  url: string;
+  createdAt: string;
+  size: number;
+}
+
+/**
+ * Upload an image to Supabase storage
+ */
+export async function uploadImage(file: File): Promise<ImageInfo | null> {
+  try {
+    // Create a unique file name to prevent overwrites
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 15)}-${Date.now()}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(`public/${fileName}`, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+      
+    if (error) throw error;
+    
+    // Get the public URL for the uploaded file
+    const { data: urlData } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(`public/${fileName}`);
+    
+    return {
+      id: data.path,
+      name: file.name,
+      url: urlData.publicUrl,
+      createdAt: new Date().toISOString(),
+      size: file.size
+    };
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    return null;
+  }
+}
+
+/**
+ * Get all images from the Supabase storage bucket
+ */
+export async function getImages(): Promise<ImageInfo[]> {
+  try {
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .list('public', {
+        sortBy: { column: 'created_at', order: 'desc' }
+      });
+      
+    if (error) throw error;
+    
+    return data.map(item => {
+      const { data: urlData } = supabase.storage
+        .from(BUCKET_NAME)
+        .getPublicUrl(`public/${item.name}`);
+      
+      return {
+        id: item.id,
+        name: item.name,
+        url: urlData.publicUrl,
+        createdAt: item.created_at,
+        size: item.metadata?.size || 0
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching images:", error);
+    return [];
+  }
+}
+
+/**
+ * Delete an image from Supabase storage
+ */
+export async function deleteImage(path: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .remove([path]);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error("Error deleting image:", error);
+    return false;
+  }
+}

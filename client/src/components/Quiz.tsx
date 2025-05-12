@@ -35,6 +35,7 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
 
   // For handling image errors
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const [imageLoadStatus, setImageLoadStatus] = useState<Record<string, 'loading' | 'loaded' | 'error'>>({});
 
   const timerRef = useRef<number | null>(null);
   const shuffledQuestionsRef = useRef<Question[]>([]);
@@ -221,9 +222,23 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
     setShowNavigationTooltip(prev => !prev);
   };
 
-  // Handle image load error
+  // Handle image load error with improved error handling
   const handleImageError = (imageUrl: string) => {
+    console.error("Failed to load image:", imageUrl);
     setImageErrors(prev => ({ ...prev, [imageUrl]: true }));
+    setImageLoadStatus(prev => ({ ...prev, [imageUrl]: 'error' }));
+  };
+
+  // Handle image load success
+  const handleImageLoaded = (imageUrl: string) => {
+    setImageLoadStatus(prev => ({ ...prev, [imageUrl]: 'loaded' }));
+  };
+
+  // Check if an image is valid and not in error state
+  const isValidImage = (url: string | null) => {
+    if (!url) return false;
+    if (imageErrors[url]) return false;
+    return true;
   };
 
   // Format time to display as MM:SS
@@ -262,7 +277,7 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
   }
 
   const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];
-  const hasQuestionImage = currentQuestion.questionImage && !imageErrors[currentQuestion.questionImage];
+  const hasQuestionImage = isValidImage(currentQuestion.questionImage);
   const hasOptionImages = currentQuestion.optionImages && 
     currentQuestion.optionImages.some(img => img && !imageErrors[img]);
   
@@ -324,15 +339,27 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
               <div className="border-l-4 border-pixel-yellow pl-4 mb-6">
                 <h3 className="font-pixel text-lg">{currentQuestion.question}</h3>
                 
-                {/* Question Image */}
+                {/* Question Image with improved handling */}
                 {hasQuestionImage && (
                   <div className="mt-4 bg-gray-50 p-3 border-2 border-black rounded-md flex justify-center">
-                    <img 
-                      src={currentQuestion.questionImage || ""} 
-                      alt="Question Visual" 
-                      className="max-h-64 object-contain"
-                      onError={() => handleImageError(currentQuestion.questionImage || "")}
-                    />
+                    <div className="relative">
+                      {imageLoadStatus[currentQuestion.questionImage || ''] !== 'loaded' && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                          <div className="animate-pulse rounded-md bg-gray-200 h-48 w-48"></div>
+                        </div>
+                      )}
+                      <img 
+                        src={currentQuestion.questionImage || ""}
+                        alt="Question Visual" 
+                        className={`max-h-64 object-contain ${
+                          imageLoadStatus[currentQuestion.questionImage || ''] === 'loaded' 
+                            ? 'opacity-100' 
+                            : 'opacity-0'
+                        }`}
+                        onError={() => handleImageError(currentQuestion.questionImage || "")}
+                        onLoad={() => handleImageLoaded(currentQuestion.questionImage || "")}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -340,7 +367,7 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
               <div className="space-y-4">
                 {currentQuestion.options.map((option, index) => {
                   const optionImage = currentQuestion.optionImages?.[index];
-                  const hasOptionImage = optionImage && !imageErrors[optionImage];
+                  const hasOptionImage = isValidImage(optionImage);
                   
                   return (
                     <button 
@@ -362,16 +389,28 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
                         <span>{option}</span>
                       </div>
                       
-                      {/* Option Image */}
+                      {/* Option Image with improved handling */}
                       {hasOptionImage && (
                         <div className="mt-2 ml-14 flex justify-start">
                           <div className="border-2 border-gray-300 p-2 rounded bg-gray-50 inline-block">
-                            <img 
-                              src={optionImage} 
-                              alt={`Option ${String.fromCharCode(65 + index)}`}
-                              className="max-h-24 object-contain"
-                              onError={() => handleImageError(optionImage)}
-                            />
+                            <div className="relative">
+                              {imageLoadStatus[optionImage || ''] !== 'loaded' && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                                  <div className="animate-pulse rounded-md bg-gray-200 h-20 w-32"></div>
+                                </div>
+                              )}
+                              <img 
+                                src={optionImage || ""}
+                                alt={`Option ${String.fromCharCode(65 + index)}`}
+                                className={`max-h-24 object-contain ${
+                                  imageLoadStatus[optionImage || ''] === 'loaded' 
+                                    ? 'opacity-100' 
+                                    : 'opacity-0'
+                                }`}
+                                onError={() => handleImageError(optionImage || "")}
+                                onLoad={() => handleImageLoaded(optionImage || "")}
+                              />
+                            </div>
                           </div>
                         </div>
                       )}
