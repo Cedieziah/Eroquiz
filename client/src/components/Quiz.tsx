@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import PixelHeart from "./PixelHeart";
 import { Question, Settings } from "@shared/schema";
+import { useToast } from "../hooks/use-toast";
 
 interface QuizProps {
   questions: Question[];
@@ -10,6 +11,8 @@ interface QuizProps {
 }
 
 export default function Quiz({ questions, settings, onQuizEnd, category }: QuizProps) {
+  const { toast } = useToast(); // Add the toast hook
+  
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [lives, setLives] = useState(settings.lives);
   const [score, setScore] = useState(0);
@@ -293,6 +296,16 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
   
   // Function to submit all answers after review
   const handleSubmitReview = () => {
+    // Ensure all questions have been answered before allowing submission
+    if (Object.keys(userAnswers).length < shuffledQuestionsRef.current.length) {
+      toast({
+        title: "Incomplete Quiz",
+        description: `Please answer all ${shuffledQuestionsRef.current.length} questions before submitting. You've answered ${Object.keys(userAnswers).length} so far.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Calculate the score and correctness based on user answers
     let finalScore = 0;
     let correctCount = 0;
@@ -350,6 +363,11 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
   
   // If we're showing the review screen
   if (showReviewScreen) {
+    // Check if all questions have been answered
+    const totalQuestions = shuffledQuestionsRef.current.length;
+    const answeredCount = Object.keys(userAnswers).length;
+    const allQuestionsAnswered = answeredCount === totalQuestions;
+    
     return (
       <div className="relative">
         <div className="flex justify-between items-center mb-6">
@@ -369,7 +387,10 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
 
           <div className="relative z-20">
             <div className="mb-6 text-center">
-              <p className="font-pixel text-lg">You've answered {Object.keys(userAnswers).length} of {shuffledQuestionsRef.current.length} questions. Review your answers before submitting.</p>
+              <p className="font-pixel text-lg">You've answered {answeredCount} of {totalQuestions} questions. Review your answers before submitting.</p>
+              {!allQuestionsAnswered && (
+                <p className="text-sm text-pixel-red font-bold mt-2">You must answer all questions before submitting!</p>
+              )}
               <p className="text-sm text-gray-600 mt-2">Click on a question to edit your answer or click SUBMIT to finish the quiz.</p>
             </div>
             
@@ -471,12 +492,27 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
             </div>
             
             <div className="text-center">
-              <button 
-                onClick={handleSubmitReview}
-                className="bg-pixel-yellow px-10 py-4 font-pixel text-xl text-pixel-dark border-4 border-black hover:bg-yellow-400 transition-all"
-              >
-                SUBMIT AND SEE RESULTS
-              </button>
+              {Object.keys(userAnswers).length < shuffledQuestionsRef.current.length ? (
+                <>
+                  <button 
+                    disabled
+                    className="bg-gray-400 px-10 py-4 font-pixel text-xl text-gray-700 border-4 border-black cursor-not-allowed"
+                  >
+                    SUBMIT AND SEE RESULTS
+                  </button>
+                  <p className="mt-2 text-red-500 font-pixel text-sm">
+                    Please answer all {shuffledQuestionsRef.current.length} questions before submitting. 
+                    You've answered {Object.keys(userAnswers).length} so far.
+                  </p>
+                </>
+              ) : (
+                <button 
+                  onClick={handleSubmitReview}
+                  className="bg-pixel-yellow px-10 py-4 font-pixel text-xl text-pixel-dark border-4 border-black hover:bg-yellow-400 transition-all"
+                >
+                  SUBMIT AND SEE RESULTS
+                </button>
+              )}
             </div>
           </div>
         </div>
