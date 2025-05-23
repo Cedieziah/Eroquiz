@@ -362,32 +362,110 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
 
         <div className="relative border-8 border-black rounded-lg bg-white p-6">
           {/* Yellow corner accents */}
-          <div className="absolute w-8 h-8 bg-pixel-yellow top-0 left-0 z-10"></div>
-          <div className="absolute w-8 h-8 bg-pixel-yellow top-0 right-0 z-10"></div>
-          <div className="absolute w-8 h-8 bg-pixel-yellow bottom-0 left-0 z-10"></div>
-          <div className="absolute w-8 h-8 bg-pixel-yellow bottom-0 right-0 z-10"></div>
-          
+          <div className="absolute w-8 h-8 bg-pixel-yellow top-0 left-0 rounded-tl-lg z-10"></div>
+          <div className="absolute w-8 h-8 bg-pixel-yellow top-0 right-0 rounded-tr-lg z-10"></div>
+          <div className="absolute w-8 h-8 bg-pixel-yellow bottom-0 left-0 rounded-bl-lg z-10"></div>
+          <div className="absolute w-8 h-8 bg-pixel-yellow bottom-0 right-0 rounded-br-lg z-10"></div>
+
           <div className="relative z-20">
             <div className="mb-6 text-center">
-              <p className="font-pixel text-lg">You've answered all questions. Review your answers before submitting.</p>
-              <p className="text-sm text-gray-600 mt-2">Click on a question to review it or click SUBMIT to finish the quiz.</p>
+              <p className="font-pixel text-lg">You've answered {Object.keys(userAnswers).length} of {shuffledQuestionsRef.current.length} questions. Review your answers before submitting.</p>
+              <p className="text-sm text-gray-600 mt-2">Click on a question to edit your answer or click SUBMIT to finish the quiz.</p>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[300px] overflow-y-auto p-4 mb-6 border-2 border-black">
-              {shuffledQuestionsRef.current.map((_, index) => {
-                const isAnswered = userAnswers[index] !== undefined;
+            {/* Detailed Review of Questions and Answers */}
+            <div className="max-h-[400px] overflow-y-auto mb-6 p-2">
+              {shuffledQuestionsRef.current.map((question, index) => {
+                const userAnswer = userAnswers[index];
+                const hasAnswered = userAnswer !== undefined;
                 
                 return (
-                  <button
-                    key={index}
-                    className={`${isAnswered ? 'bg-blue-600' : 'bg-gray-700'} text-white font-pixel p-3 rounded-md hover:opacity-80 transition-all`}
+                  <div key={index} 
+                    className={`mb-4 p-4 rounded-lg border-4 ${hasAnswered ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}
                     onClick={() => {
-                      setShowReviewScreen(false);
-                      setCurrentQuestionIndex(index);
+                      if (isTimerRunning) {
+                        setShowReviewScreen(false);
+                        setCurrentQuestionIndex(index);
+                      }
                     }}
                   >
-                    Question {index + 1}
-                  </button>
+                    <div className="flex justify-between items-start">
+                      <div className="font-pixel-text mb-2 flex-1">
+                        <span className="font-pixel text-gray-700 mr-2">Q{index + 1}:</span>
+                        {question.question}
+                        
+                        {/* Question Image */}
+                        {isValidImage(question.questionImage) && (
+                          <div className="mt-2 flex justify-start">
+                            <img 
+                              src={question.questionImage || ""} 
+                              alt="Question" 
+                              className="max-h-20 object-contain" 
+                            />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="ml-2">
+                        <span className={`font-pixel px-3 py-1 rounded ${hasAnswered ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {hasAnswered ? 'ANSWERED' : 'NOT ANSWERED'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Show options with the selected one highlighted */}
+                    <div className="ml-6 mt-3 space-y-2">
+                      {hasAnswered ? (
+                        <div>
+                          <p className="font-pixel text-gray-700 mb-1">Your answer:</p>
+                          {question.options.map((option, optIndex) => {
+                            const isSelected = userAnswer === optIndex;
+                            return (
+                              <div 
+                                key={optIndex} 
+                                className={`p-2 rounded ${isSelected ? 'bg-blue-100 border-2 border-blue-300' : ''}`}
+                              >
+                                <div className="flex items-center">
+                                  <span className="inline-block w-7 h-7 bg-black text-white font-pixel flex items-center justify-center mr-2 text-sm">
+                                    {String.fromCharCode(65 + optIndex)}
+                                  </span>
+                                  <span className={`${isSelected ? 'font-bold' : ''}`}>{option}</span>
+                                </div>
+                                
+                                {/* Option Image */}
+                                {isSelected && question.optionImages && isValidImage(question.optionImages[optIndex]) && (
+                                  <div className="mt-2 ml-9 flex justify-start">
+                                    <img 
+                                      src={question.optionImages[optIndex] || ""} 
+                                      alt="Selected option" 
+                                      className="max-h-16 object-contain border-2 border-gray-200 p-1 bg-white" 
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="font-pixel-text text-sm text-gray-500 italic">No answer selected yet</p>
+                      )}
+                    </div>
+                    
+                    <div className="mt-3 text-right">
+                      <button 
+                        className="font-pixel text-xs text-blue-600 hover:text-blue-800 underline bg-white px-2 py-1 rounded"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isTimerRunning) {
+                            setShowReviewScreen(false);
+                            setCurrentQuestionIndex(index);
+                          }
+                        }}
+                      >
+                        {hasAnswered ? 'CHANGE ANSWER' : 'ANSWER NOW'}
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -412,7 +490,7 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
     setQuizEnded(true);
     return <div className="p-8 text-center font-pixel">Finishing quiz...</div>;
   }
-
+  
   const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];
   const hasQuestionImage = isValidImage(currentQuestion.questionImage);
   const hasOptionImages = currentQuestion.optionImages && 
