@@ -61,12 +61,13 @@ export type Question = typeof questions.$inferSelect;
 // Game settings schema
 export const settings = pgTable("settings", {
   id: serial("id").primaryKey(),
-  timerSeconds: integer("timer_seconds").notNull().default(30),
-  quizDurationSeconds: integer("quiz_duration_seconds").notNull().default(300), // 5 minutes default
-  lives: integer("lives").notNull().default(5),
-  pointsPerCorrectAnswer: integer("points_per_correct_answer").notNull().default(50),
-  timeBonus: integer("time_bonus").notNull().default(5),
-  livesEnabled: boolean("lives_enabled").notNull().default(true), // New field to toggle lives feature
+  quizDurationSeconds: integer("quiz_duration_seconds").notNull().default(300), // Default to 5 minutes
+  timerSeconds: integer("timer_seconds").notNull().default(30), // Default to 30 seconds per question
+  lives: integer("lives").notNull().default(5), // Default to 5 lives
+  livesEnabled: boolean("lives_enabled").notNull().default(true), // Whether lives feature is enabled
+  reviewModeEnabled: boolean("review_mode_enabled").notNull().default(false), // Whether review mode is enabled
+  pointsPerCorrectAnswer: integer("points_per_correct_answer").notNull().default(50), // Default to 50 points
+  timeBonus: integer("time_bonus").notNull().default(0), // Time bonus points (0 = disabled)
 });
 
 export const insertSettingsSchema = createInsertSchema(settings).pick({
@@ -76,6 +77,7 @@ export const insertSettingsSchema = createInsertSchema(settings).pick({
   pointsPerCorrectAnswer: true,
   timeBonus: true,
   livesEnabled: true, // Add to schema
+  reviewModeEnabled: true, // Add to schema
 });
 
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;

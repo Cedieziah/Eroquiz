@@ -10,6 +10,10 @@ interface ScoreProps {
   onPlayAgain: () => void;
   onBackToMain: () => void;
   category: number;
+  reviewData?: {
+    questions: any[];
+    userAnswers: Record<number, number>;
+  };
 }
 
 interface Category {
@@ -25,9 +29,11 @@ export default function Score({
   correctAnswers,
   onPlayAgain,
   onBackToMain,
-  category
+  category,
+  reviewData
 }: ScoreProps) {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showReviewDetails, setShowReviewDetails] = useState(false);
 
   // Fetch categories from API instead of hardcoding them
   const { data: categories = [] } = useQuery<Category[]>({
@@ -95,6 +101,73 @@ export default function Score({
             </span>
           </div>
         </div>
+        
+        {/* Review Results Section - only show if we have review data */}
+        {reviewData && (
+          <div className="mt-4 mb-8">
+            {showReviewDetails ? (
+              <div className="bg-gray-50 p-4 border-4 border-black rounded-lg">
+                <h3 className="font-pixel text-pixel-blue text-xl mb-4 text-center">QUESTION REVIEW</h3>
+                
+                <div className="max-h-[300px] overflow-y-auto">
+                  {reviewData.questions.map((question, index) => {
+                    const userAnswer = reviewData.userAnswers[index];
+                    const isCorrect = userAnswer === question.correctAnswer;
+                    
+                    return (
+                      <div key={index} className={`mb-6 p-4 rounded-lg ${isCorrect ? 'bg-green-50 border-2 border-green-200' : 'bg-red-50 border-2 border-red-200'}`}>
+                        <div className="font-pixel-text mb-2">
+                          <span className="font-pixel text-gray-700 mr-2">Q{index + 1}:</span>
+                          {question.question}
+                        </div>
+                        
+                        <div className="text-sm">
+                          <p className="font-pixel text-gray-700">Your answer: 
+                            <span className={isCorrect ? 'text-green-600 ml-2' : 'text-red-600 ml-2'}>
+                              {question.options[userAnswer]}
+                            </span>
+                          </p>
+                          
+                          {!isCorrect && (
+                            <p className="font-pixel text-gray-700">Correct answer: 
+                              <span className="text-green-600 ml-2">
+                                {question.options[question.correctAnswer]}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div className="text-right mt-2">
+                          <span className={`font-pixel px-3 py-1 rounded ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {isCorrect ? '+' + question.points : '0'} points
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <div className="text-center mt-4">
+                  <button 
+                    onClick={() => setShowReviewDetails(false)}
+                    className="font-pixel bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
+                  >
+                    HIDE DETAILS
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center">
+                <button 
+                  onClick={() => setShowReviewDetails(true)}
+                  className="font-pixel bg-pixel-green text-white px-6 py-3 rounded-lg hover:brightness-110 transition-all"
+                >
+                  REVIEW ANSWERS
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Button container with pixel styling */}
         <div className="flex flex-col sm:flex-row justify-center gap-4">

@@ -18,6 +18,7 @@ export default function Home() {
   const [correctAnswers, setCorrectAnswers] = useState<number>(0);
   const [questionsAnswered, setQuestionsAnswered] = useState<number>(0);
   const [isReady, setIsReady] = useState<boolean>(false);
+  const [reviewData, setReviewData] = useState<any>(null);
   const queryClient = useQueryClient();
   
   // Fetch questions from the server
@@ -81,7 +82,7 @@ export default function Home() {
     setQuestionsAnswered(0);
   };
   
-  const handleQuizEnd = (finalScore: number, answered: number, correct: number, timeSpent?: number) => {
+  const handleQuizEnd = (finalScore: number, answered: number, correct: number, timeSpent?: number, reviewData?: any) => {
     setScore(finalScore);
     setQuestionsAnswered(answered);
     setCorrectAnswers(correct);
@@ -118,6 +119,9 @@ export default function Home() {
         console.error("Failed to save score to Supabase:", error);
       });
     }
+    
+    // Save reviewData for Score component
+    setReviewData(reviewData);
   };
   
   const handlePlayAgain = () => {
@@ -180,6 +184,7 @@ export default function Home() {
           onPlayAgain={handlePlayAgain}
           onBackToMain={handleBackToMain}
           category={playerCategory}
+          reviewData={reviewData} // Pass review data to Score
         />
       )}
       

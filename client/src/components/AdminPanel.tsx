@@ -53,6 +53,7 @@ const settingsFormSchema = z.object({
   quizDurationMinutes: z.number().min(1, "Minimum 1 minute").max(60, "Maximum 60 minutes"),
   lives: z.number().min(1, "Minimum 1 life").max(10, "Maximum 10 lives"),
   livesEnabled: z.boolean().default(true), // Add livesEnabled to the schema
+  reviewModeEnabled: z.boolean().default(false), // Add reviewModeEnabled to the schema
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
@@ -109,6 +110,8 @@ export default function AdminPanel() {
     defaultValues: {
       quizDurationMinutes: settings ? Math.round(settings.quizDurationSeconds / 60) : 5,
       lives: settings?.lives || 5,
+      livesEnabled: settings?.livesEnabled ?? true,
+      reviewModeEnabled: settings?.reviewModeEnabled ?? false, // Initialize reviewModeEnabled
     }
   });
   
@@ -124,10 +127,20 @@ export default function AdminPanel() {
   // Update settings form values when settings data is loaded
   useEffect(() => {
     if (settings) {
+      // Use reset with keepDefaultValues:false to fully update the form with new values
       settingsForm.reset({
         quizDurationMinutes: Math.round(settings.quizDurationSeconds / 60),
         lives: settings.lives,
-        livesEnabled: settings.livesEnabled ?? true, // Include livesEnabled with fallback to true
+        livesEnabled: settings.livesEnabled ?? true,
+        reviewModeEnabled: settings.reviewModeEnabled ?? false,
+      }, { keepDefaultValues: false });
+      
+      // Debug log to verify reset values
+      console.log("Settings form reset with values:", {
+        quizDurationMinutes: Math.round(settings.quizDurationSeconds / 60),
+        lives: settings.lives,
+        livesEnabled: settings.livesEnabled ?? true,
+        reviewModeEnabled: settings.reviewModeEnabled ?? false,
       });
     }
   }, [settings, settingsForm]);
@@ -411,6 +424,8 @@ export default function AdminPanel() {
         // Include lives settings
         lives: data.lives,
         livesEnabled: data.livesEnabled,
+        // Include review mode setting
+        reviewModeEnabled: data.reviewModeEnabled,
         // Keep existing values for fields we're not showing in UI
         timerSeconds: settings?.timerSeconds || 30,
         pointsPerCorrectAnswer: settings?.pointsPerCorrectAnswer || 50,
@@ -1348,6 +1363,42 @@ export default function AdminPanel() {
                             )}
                           </div>
                         )}
+                      </div>
+                      
+                      {/* Review Mode Settings Section */}
+                      <div className="border-4 border-black p-4 bg-white">
+                        {/* Review Mode Toggle */}
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between">
+                            <label className="font-pixel text-sm">Enable Review Mode:</label>
+                            <div 
+                              className={`relative inline-block w-14 h-8 cursor-pointer border-2 border-black ${
+                                settingsForm.watch("reviewModeEnabled") ? "bg-green-500" : "bg-gray-400"
+                              }`}
+                              onClick={() => {
+                                settingsForm.setValue("reviewModeEnabled", !settingsForm.watch("reviewModeEnabled"));
+                              }}
+                            >
+                              <div 
+                                className={`absolute top-0.5 left-0.5 bg-white w-6 h-6 border-2 border-black transition-transform ${
+                                  settingsForm.watch("reviewModeEnabled") ? "transform translate-x-6" : ""
+                                }`} 
+                              />
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-2 font-pixel">
+                            {settingsForm.watch("reviewModeEnabled") 
+                              ? "Players answer all questions first, then see results at the end" 
+                              : "Players see results immediately after each question"}
+                          </p>
+                        </div>
+                        <div className="mt-2 bg-gray-100 p-3 border-2 border-black">
+                          <p className="text-xs font-pixel text-gray-700">
+                            <span className="font-bold">Review Mode:</span> Players answer all questions before seeing any results. 
+                            They can navigate back and forth between questions, and will see a review screen with all their answers 
+                            before final submission.
+                          </p>
+                        </div>
                       </div>
                     </div>
                     

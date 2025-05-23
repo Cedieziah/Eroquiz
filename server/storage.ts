@@ -87,7 +87,8 @@ export class MemStorage implements IStorage {
       lives: 5,
       pointsPerCorrectAnswer: 50,
       timeBonus: 5,
-      livesEnabled: true  // Add the livesEnabled field with default true
+      livesEnabled: true,  // Add the livesEnabled field with default true
+      reviewModeEnabled: false // Add the reviewModeEnabled field with default false
     };
     
     // Add default categories
@@ -368,7 +369,8 @@ export class SQLiteStorage implements IStorage {
         lives INTEGER NOT NULL DEFAULT 5,
         points_per_correct_answer INTEGER NOT NULL DEFAULT 50,
         time_bonus INTEGER NOT NULL DEFAULT 5,
-        lives_enabled BOOLEAN NOT NULL DEFAULT 1
+        lives_enabled BOOLEAN NOT NULL DEFAULT 1,
+        review_mode_enabled BOOLEAN NOT NULL DEFAULT 0
       )
     `);
     
@@ -389,9 +391,9 @@ export class SQLiteStorage implements IStorage {
     const settingsCheck = this.db.prepare('SELECT COUNT(*) as count FROM settings').get() as { count: number };
     if (settingsCheck.count === 0) {
       this.db.prepare(`
-        INSERT INTO settings (timer_seconds, quiz_duration_seconds, lives, points_per_correct_answer, time_bonus, lives_enabled)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(30, 300, 5, 50, 5, 1);
+        INSERT INTO settings (timer_seconds, quiz_duration_seconds, lives, points_per_correct_answer, time_bonus, lives_enabled, review_mode_enabled)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(30, 300, 5, 50, 5, 1, 0);
     }
     
     // Add default categories if none exist
@@ -674,9 +676,9 @@ export class SQLiteStorage implements IStorage {
     if (!row) {
       // If no settings found, create default and return
       this.db.prepare(`
-        INSERT INTO settings (timer_seconds, quiz_duration_seconds, lives, points_per_correct_answer, time_bonus, lives_enabled)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(30, 300, 5, 50, 5, 1);
+        INSERT INTO settings (timer_seconds, quiz_duration_seconds, lives, points_per_correct_answer, time_bonus, lives_enabled, review_mode_enabled)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(30, 300, 5, 50, 5, 1, 0);
       
       return {
         id: 1,
@@ -685,7 +687,8 @@ export class SQLiteStorage implements IStorage {
         lives: 5,
         pointsPerCorrectAnswer: 50,
         timeBonus: 5,
-        livesEnabled: true
+        livesEnabled: true,
+        reviewModeEnabled: false
       };
     }
     
@@ -696,7 +699,8 @@ export class SQLiteStorage implements IStorage {
       lives: row.lives,
       pointsPerCorrectAnswer: row.points_per_correct_answer,
       timeBonus: row.time_bonus,
-      livesEnabled: Boolean(row.lives_enabled)
+      livesEnabled: Boolean(row.lives_enabled),
+      reviewModeEnabled: Boolean(row.review_mode_enabled)
     };
   }
   
@@ -710,7 +714,7 @@ export class SQLiteStorage implements IStorage {
     
     this.db.prepare(`
       UPDATE settings
-      SET timer_seconds = ?, quiz_duration_seconds = ?, lives = ?, points_per_correct_answer = ?, time_bonus = ?, lives_enabled = ?
+      SET timer_seconds = ?, quiz_duration_seconds = ?, lives = ?, points_per_correct_answer = ?, time_bonus = ?, lives_enabled = ?, review_mode_enabled = ?
       WHERE id = ?
     `).run(
       updatedSettings.timerSeconds,
@@ -719,6 +723,7 @@ export class SQLiteStorage implements IStorage {
       updatedSettings.pointsPerCorrectAnswer,
       updatedSettings.timeBonus,
       updatedSettings.livesEnabled ? 1 : 0,
+      updatedSettings.reviewModeEnabled ? 1 : 0,
       currentSettings.id
     );
     

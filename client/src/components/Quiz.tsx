@@ -5,7 +5,7 @@ import { Question, Settings } from "@shared/schema";
 interface QuizProps {
   questions: Question[];
   settings: Settings;
-  onQuizEnd: (score: number, answered: number, correct: number, timeSpent?: number) => void;
+  onQuizEnd: (score: number, answered: number, correct: number, timeSpent?: number, reviewData?: any) => void;
   category: number; // Add category prop
 }
 
@@ -30,8 +30,13 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
   
   // New state variables for question navigation
   const [answeredQuestionsMap, setAnsweredQuestionsMap] = useState<Record<number, boolean>>({});
+  const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
   const [visitedQuestionsMap, setVisitedQuestionsMap] = useState<Record<number, boolean>>({});
   const [showNavigationTooltip, setShowNavigationTooltip] = useState(false);
+  
+  // States for review mode
+  const [showReviewScreen, setShowReviewScreen] = useState(false);
+  const [isReviewMode] = useState(settings.reviewModeEnabled ?? false);
 
   // For handling image errors
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
@@ -98,42 +103,58 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
       return; // Prevent double answering
     }
 
-    setSelectedAnswer(answerIndex);
-    // Don't stop the timer when answering a question
-
-    const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];
-    const isCorrect = answerIndex === currentQuestion.correctAnswer;
-    setIsAnswerCorrect(isCorrect);
+    // Save user's answer
+    setUserAnswers(prev => ({ ...prev, [currentQuestionIndex]: answerIndex }));
     
     // Mark this question as answered in our map
     setAnsweredQuestionsMap(prev => ({ ...prev, [currentQuestionIndex]: true }));
     
-    // Trigger feedback animation
-    setFeedbackAnimation(true);
-    
-    if (isCorrect) {
-      // Use the question's points directly (no time bonus)
-      const points = currentQuestion.points;
-      setScore((prev) => prev + points);
-      setCorrectAnswers((prev) => prev + 1);
+    if (isReviewMode) {
+      // In review mode, just set the selection visually and delay moving to next question
+      setSelectedAnswer(answerIndex);
       
-      // Animate the score
-      setScoreAnimation(true);
-      setTimeout(() => setScoreAnimation(false), 1000);
-    } else if (settings.livesEnabled) {
-      // Only deduct lives if the feature is enabled
-      setLives((prev) => prev - 1);
+      // Short delay before moving to next question
+      setTimeout(() => {
+        setSelectedAnswer(null); // Reset selection
+        moveToNextQuestion();
+      }, 500);
+    } else {
+      // In immediate feedback mode
+      setSelectedAnswer(answerIndex);
+      
+      const currentQuestion = shuffledQuestionsRef.current[currentQuestionIndex];
+      const isCorrect = answerIndex === currentQuestion.correctAnswer;
+      
+      // Show feedback
+      setIsAnswerCorrect(isCorrect);
+      
+      // Trigger feedback animation
+      setFeedbackAnimation(true);
+      
+      if (isCorrect) {
+        // Use the question's points directly (no time bonus)
+        const points = currentQuestion.points;
+        setScore((prev) => prev + points);
+        setCorrectAnswers((prev) => prev + 1);
+        
+        // Animate the score
+        setScoreAnimation(true);
+        setTimeout(() => setScoreAnimation(false), 1000);
+      } else if (settings.livesEnabled) {
+        // Only deduct lives if the feature is enabled
+        setLives((prev) => prev - 1);
+      }
+
+      setAnsweredQuestions((prev) => prev + 1);
+
+      // Move to the next question after a delay, but keep the timer running
+      setTimeout(() => {
+        setFeedbackAnimation(false); // Reset animation before moving to next question
+        moveToNextQuestion();
+      }, 1500);
     }
-
-    setAnsweredQuestions((prev) => prev + 1);
-
-    // Move to the next question after a delay, but keep the timer running
-    setTimeout(() => {
-      setFeedbackAnimation(false); // Reset animation before moving to next question
-      moveToNextQuestion();
-    }, 1500);
   };
-
+  
   const moveToNextQuestion = () => {
     setSelectedAnswer(null);
     setIsAnswerCorrect(null);
@@ -142,17 +163,35 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
     const totalAnsweredQuestions = Object.values(answeredQuestionsMap).filter(Boolean).length;
     const allQuestionsAnswered = totalAnsweredQuestions >= shuffledQuestionsRef.current.length;
     
-    // If all questions have been answered or we're out of lives, end the quiz immediately
-    if (allQuestionsAnswered || (settings.livesEnabled && lives <= 0)) {
-      console.log("All questions answered or no lives left - ending quiz");
+    // If all questions have been answered
+    if (allQuestionsAnswered) {
+      if (isReviewMode) {
+        // In review mode, show the review screen instead of ending the quiz
+        setShowReviewScreen(true);
+        return;
+      } else {
+        // In immediate feedback mode, end the quiz
+        console.log("All questions answered - ending quiz");
+        setQuizEnded(true);
+        return;
+      }
+    }
+    
+    // If we're out of lives, end the quiz immediately
+    if (settings.livesEnabled && lives <= 0) {
+      console.log("No lives left - ending quiz");
       setQuizEnded(true);
       return;
     }
     
     // Special handling for single-question quizzes
     if (shuffledQuestionsRef.current.length === 1) {
-      console.log("Single question quiz completed - ending quiz");
-      setQuizEnded(true);
+      if (isReviewMode) {
+        setShowReviewScreen(true);
+      } else {
+        console.log("Single question quiz completed - ending quiz");
+        setQuizEnded(true);
+      }
       return;
     }
     
@@ -182,10 +221,14 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
       }
     }
     
-    // If we still didn't find any unanswered questions, end the quiz
+    // If we still didn't find any unanswered questions, show review screen or end the quiz
     if (nextIndex === -1) {
-      console.log("No more unanswered questions found - ending quiz");
-      setQuizEnded(true);
+      if (isReviewMode) {
+        setShowReviewScreen(true);
+      } else {
+        console.log("No more unanswered questions found - ending quiz");
+        setQuizEnded(true);
+      }
       return;
     }
     
@@ -198,11 +241,11 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
   const navigateToQuestion = (index: number) => {
     // Don't allow navigation if:
     // 1. User tries to navigate to the current question
-    // 2. User tries to navigate to a question they've already answered
+    // 2. User tries to navigate to a question they've already answered (in immediate feedback mode)
     // 3. Timer has stopped
     if (
       index === currentQuestionIndex ||
-      answeredQuestionsMap[index] ||
+      (!isReviewMode && answeredQuestionsMap[index]) ||
       !isTimerRunning
     ) {
       return;
@@ -247,6 +290,42 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
   };
+  
+  // Function to submit all answers after review
+  const handleSubmitReview = () => {
+    // Calculate the score and correctness based on user answers
+    let finalScore = 0;
+    let correctCount = 0;
+    
+    Object.entries(userAnswers).forEach(([questionIndexStr, userAnswerIndex]) => {
+      const questionIndex = parseInt(questionIndexStr);
+      const question = shuffledQuestionsRef.current[questionIndex];
+      
+      if (userAnswerIndex === question.correctAnswer) {
+        // If correct, add points
+        finalScore += question.points;
+        correctCount++;
+      }
+    });
+    
+    // Update the score
+    setScore(finalScore);
+    setCorrectAnswers(correctCount);
+    setAnsweredQuestions(Object.keys(userAnswers).length);
+    
+    // Create review data to pass to Score component
+    const reviewData = {
+      questions: shuffledQuestionsRef.current,
+      userAnswers: userAnswers
+    };
+    
+    // End the quiz and pass the review data
+    setQuizEnded(true);
+    
+    // Pass review data to parent component through onQuizEnd
+    const timeSpentSeconds = Math.round((Date.now() - startTime) / 1000);
+    onQuizEnd(finalScore, Object.keys(userAnswers).length, correctCount, timeSpentSeconds, reviewData);
+  };
 
   // If still loading
   if (isLoading) {
@@ -267,6 +346,64 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
   // If the quiz has ended
   if (quizEnded) {
     return <div className="p-8 text-center font-pixel">Finishing quiz...</div>;
+  }
+  
+  // If we're showing the review screen
+  if (showReviewScreen) {
+    return (
+      <div className="relative">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="font-pixel text-2xl text-pixel-yellow">REVIEW YOUR ANSWERS</h2>
+          <div className="font-pixel text-sm bg-black text-white p-3 rounded-lg border-2 border-gray-800">
+            <span className="mr-2">TIME LEFT:</span>
+            <span className="text-pixel-yellow">{formatTime(quizTimeLeft)}</span>
+          </div>
+        </div>
+
+        <div className="relative border-8 border-black rounded-lg bg-white p-6">
+          {/* Yellow corner accents */}
+          <div className="absolute w-8 h-8 bg-pixel-yellow top-0 left-0 z-10"></div>
+          <div className="absolute w-8 h-8 bg-pixel-yellow top-0 right-0 z-10"></div>
+          <div className="absolute w-8 h-8 bg-pixel-yellow bottom-0 left-0 z-10"></div>
+          <div className="absolute w-8 h-8 bg-pixel-yellow bottom-0 right-0 z-10"></div>
+          
+          <div className="relative z-20">
+            <div className="mb-6 text-center">
+              <p className="font-pixel text-lg">You've answered all questions. Review your answers before submitting.</p>
+              <p className="text-sm text-gray-600 mt-2">Click on a question to review it or click SUBMIT to finish the quiz.</p>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[300px] overflow-y-auto p-4 mb-6 border-2 border-black">
+              {shuffledQuestionsRef.current.map((_, index) => {
+                const isAnswered = userAnswers[index] !== undefined;
+                
+                return (
+                  <button
+                    key={index}
+                    className={`${isAnswered ? 'bg-blue-600' : 'bg-gray-700'} text-white font-pixel p-3 rounded-md hover:opacity-80 transition-all`}
+                    onClick={() => {
+                      setShowReviewScreen(false);
+                      setCurrentQuestionIndex(index);
+                    }}
+                  >
+                    Question {index + 1}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <div className="text-center">
+              <button 
+                onClick={handleSubmitReview}
+                className="bg-pixel-yellow px-10 py-4 font-pixel text-xl text-pixel-dark border-4 border-black hover:bg-yellow-400 transition-all"
+              >
+                SUBMIT AND SEE RESULTS
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // If we're out of questions or lives (if lives feature is enabled), end the quiz
@@ -293,10 +430,13 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
             ))}
           </div>
         )}
-        <div className={`font-pixel text-sm bg-black text-white p-3 rounded-lg border-2 border-gray-800 ${!settings.livesEnabled ? 'ml-auto' : ''} ${scoreAnimation ? 'animate-bounce' : ''}`}>
-          <span className="mr-2">SCORE:</span>
-          <span className={`text-pixel-yellow ${scoreAnimation ? 'text-2xl' : ''}`}>{score}</span>
-        </div>
+        {/* Only show score in non-review mode */}
+        {!isReviewMode && (
+          <div className={`font-pixel text-sm bg-black text-white p-3 rounded-lg border-2 border-gray-800 ${!settings.livesEnabled ? 'ml-auto' : ''} ${scoreAnimation ? 'animate-bounce' : ''}`}>
+            <span className="mr-2">SCORE:</span>
+            <span className={`text-pixel-yellow ${scoreAnimation ? 'text-2xl' : ''}`}>{score}</span>
+          </div>
+        )}
       </div>
 
       {/* Main Quiz Container with black border and yellow corners */}
@@ -368,19 +508,33 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
                 {currentQuestion.options.map((option, index) => {
                   const optionImage = currentQuestion.optionImages?.[index];
                   const hasOptionImage = isValidImage(optionImage);
+                  const isSelected = selectedAnswer === index;
+                  const userPreviousAnswer = userAnswers[currentQuestionIndex];
+                  const isPreviouslySelected = userPreviousAnswer === index;
+                  
+                  // Determine button styling
+                  let buttonStyle = 'bg-white hover:bg-gray-100';
+                  
+                  if (isReviewMode) {
+                    // In review mode
+                    if (isPreviouslySelected) {
+                      buttonStyle = 'bg-blue-100 border-blue-500';
+                    }
+                  } else {
+                    // In immediate feedback mode
+                    if (isSelected) {
+                      buttonStyle = isAnswerCorrect 
+                        ? 'bg-green-100 border-green-500 shake-correct' 
+                        : 'bg-red-100 border-red-500 shake-incorrect';
+                    }
+                  }
                   
                   return (
                     <button 
                       key={index}
                       onClick={() => handleAnswerClick(index)}
-                      className={`w-full text-left px-4 py-5 font-pixel-text text-xl border-4 border-black transition-all duration-200 ${
-                        selectedAnswer === index 
-                          ? isAnswerCorrect 
-                            ? 'bg-green-100 border-green-500 shake-correct' 
-                            : 'bg-red-100 border-red-500 shake-incorrect'
-                          : 'bg-white hover:bg-gray-100'
-                      }`}
-                      disabled={selectedAnswer !== null || !isTimerRunning}
+                      className={`w-full text-left px-4 py-5 font-pixel-text text-xl border-4 border-black transition-all duration-200 ${buttonStyle}`}
+                      disabled={(!isReviewMode && selectedAnswer !== null) || isPreviouslySelected || !isTimerRunning}
                     >
                       <div className="flex items-center">
                         <span className="inline-block w-10 h-10 bg-black text-white font-pixel flex items-center justify-center mr-4 text-lg">
@@ -419,8 +573,15 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
                 })}
               </div>
               
-              {/* Feedback message */}
-              {isAnswerCorrect !== null && (
+              {/* Review Mode Note */}
+              {isReviewMode && (
+                <div className="mt-6 p-4 text-center font-pixel border-4 border-gray-300 bg-gray-50">
+                  <p>Review Mode: Answer all questions first, then see your results</p>
+                </div>
+              )}
+              
+              {/* Feedback message - only show in immediate feedback mode */}
+              {!isReviewMode && isAnswerCorrect !== null && (
                 <div className={`mt-6 p-4 text-center font-pixel border-4 border-black ${
                   isAnswerCorrect 
                     ? 'bg-green-100 border-green-500 text-green-800' 
@@ -434,6 +595,18 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
                   <div className="mt-2 text-center">
                     <span className={isAnswerCorrect ? 'text-green-600' : 'text-red-600'}>▼</span>
                   </div>
+                </div>
+              )}
+              
+              {/* Review Button - show in review mode when at least one question is answered */}
+              {isReviewMode && Object.keys(userAnswers).length > 0 && (
+                <div className="mt-6 text-center">
+                  <button 
+                    onClick={() => setShowReviewScreen(true)}
+                    className="bg-blue-500 text-white px-6 py-3 font-pixel border-4 border-black hover:bg-blue-600 transition-all"
+                  >
+                    REVIEW ANSWERS
+                  </button>
                 </div>
               )}
             </div>
@@ -466,7 +639,7 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
             <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto p-1">
               {shuffledQuestionsRef.current.map((_, index) => {
                 const isCurrentQuestion = index === currentQuestionIndex;
-                const isAnswered = answeredQuestionsMap[index] === true;
+                const isAnswered = userAnswers[index] !== undefined;
                 const isVisited = visitedQuestionsMap[index] === true;
                 
                 let bgColor = "bg-gray-700"; // default for unvisited
@@ -476,7 +649,7 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
                 if (isAnswered) {
                   bgColor = "bg-green-700";
                   textColor = "text-white";
-                  extraClasses = "cursor-not-allowed";
+                  extraClasses = isReviewMode ? "" : "cursor-not-allowed";  // Allow revisiting answered questions in review mode
                 } else if (isCurrentQuestion) {
                   bgColor = "bg-pixel-yellow";
                   textColor = "text-black";
@@ -491,7 +664,7 @@ export default function Quiz({ questions, settings, onQuizEnd, category }: QuizP
                     key={index}
                     className={`${bgColor} ${textColor} ${extraClasses} w-8 h-8 font-pixel flex items-center justify-center rounded-md transition-all hover:opacity-80`}
                     onClick={() => navigateToQuestion(index)}
-                    disabled={isCurrentQuestion || isAnswered || !isTimerRunning}
+                    disabled={isCurrentQuestion || (!isReviewMode && isAnswered) || !isTimerRunning}
                     title={isAnswered ? "Already answered" : isCurrentQuestion ? "Current question" : isVisited ? "Visited" : "Jump to this question"}
                   >
                     {index + 1}
